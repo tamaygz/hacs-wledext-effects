@@ -1,329 +1,259 @@
-# WLED Effects Integration for Home Assistant
+# WLED Effects - Advanced Effects for Home Assistant
 
-**Version 2.0 - Context-Aware Architecture**
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+[![GitHub Release](https://img.shields.io/github/release/tamaygz/hacs-wledext-effects.svg)](https://github.com/tamaygz/hacs-wledext-effects/releases)
+[![License](https://img.shields.io/github/license/tamaygz/hacs-wledext-effects.svg)](LICENSE)
 
-A modern, modular Home Assistant integration for managing advanced WLED effects with real-time synchronization, state monitoring, programmable triggers, and comprehensive entity controls.
+Transform your WLED LED strips into smart, context-aware displays that react to your Home Assistant state! Create stunning visualizations, notifications, and ambient lighting with 9 powerful effects and advanced programmability.
 
-> **🆕 Version 2.0 Features**: Context-aware effects with flip/reverse, multi-zone control, reactive inputs, advanced data mapping, trigger system, blend modes, and smooth transitions! See [CONTEXT_AWARE_FEATURES.md](CONTEXT_AWARE_FEATURES.md) for full details.
+## ✨ Key Features
 
-## ✨ Features
-
-### Core Features
-- **🎨 Advanced Effects**: 9 pre-built effects with extensible framework
-  - **Classic**: Rainbow Wave, Segment Fade, Loading, State Sync
-  - **🆕 v2.1**: Breathe/Pulse, Meter/Gauge, Sparkle/Twinkle, Chase/Scanner
-  - **🆕 v2.2**: Alert/Notification (multi-severity, highly customizable)
-- **🔄 Real-time State Sync**: Monitor Home Assistant entities and visualize their states on LEDs
-- **📊 Live Monitoring**: Real-time stats tracking (frame rate, latency, error rate)
-- **🛠️ Full Entity Controls**: Switch, Number, Select, Sensor, and Button entities for complete effect management
-- **⚡ High Performance**: Async architecture with rate limiting and circuit breaker
-- **🧩 Modular Design**: Extensible effect system with auto-discovery
-- **🏠 Native HA Integration**: Built with modern HA patterns (DataUpdateCoordinator, CoordinatorEntity)
-- **📱 HACS Ready**: Fully compliant with HACS requirements
-
-### 🆕 Context-Aware Features (v2.0)
-- **🔄 Flip/Reverse Direction**: Invert LED order for any effect (e.g., loading bar goes right-to-left)
-- **🎯 Multi-Zone Control**: Divide strips into up to 10 independent zones
-- **📡 Reactive Inputs**: Monitor multiple HA entities simultaneously
-- **📈 Advanced Data Mapping**: Value mapping with interpolation curves (linear, ease-in, ease-out, ease-in-out)
-- **⚡ Trigger System**: Event-based effect modulation (state change, threshold, time, custom events)
-- **🎨 Blend Modes**: Combine multiple inputs (average, max, min, multiply, add)
-- **🔀 Smooth Transitions**: Exponential smoothing eliminates jittery sensor effects
-- **✋ Manual Override Detection**: Automatically pause automation on manual WLED control (like Adaptive Lighting)
-- **🎚️ State-Reactive Effects**: All effects can optionally react to entity states (speed, position, size, etc.)
-
-**[📖 Context-Aware Documentation](CONTEXT_AWARE_FEATURES.md)** | **[📖 State-Reactive Effects Guide](STATE_REACTIVE_EFFECTS.md)** | **[📖 New Effects Guide (v2.1)](NEW_EFFECTS_GUIDE.md)** | **[📖 Alert Effect Guide (v2.2)](ALERT_EFFECT_GUIDE.md)**
+- **🎨 9 Built-in Effects**: From ambient rainbows to attention-grabbing alerts
+- **🔄 Context-Aware**: React to sensors, states, and events in real-time
+- **🎯 Multi-Zone Control**: Divide strips into independent zones
+- **⚡ Trigger System**: Event-based effect modulation
+- **📊 Data Visualization**: Transform sensor data into LED patterns
+- **🎚️ Full Control**: Complete entity support (Switch, Number, Select, Sensor, Button)
+- **⚡ High Performance**: Async architecture, rate limiting, circuit breaker
+- **📱 HACS Ready**: One-click installation
 
 ## 📋 Requirements
 
-- Home Assistant 2024.1.0 or newer
-- WLED device with firmware 0.14.0 or newer
-- Python 3.11 or newer
+- **Home Assistant** 2024.1.0 or newer
+- **WLED Integration** (installed first)
+- **WLED Device** with firmware 0.14.0+
 
-## 🚀 Quick Start
+## 🚀 Installation
 
-### Installation via HACS
+### Via HACS (Recommended)
 
-1. Add this repository to HACS as a custom repository
-2. Install "WLED Effects"
-3. Restart Home Assistant
-4. Go to Settings → Devices & Services → Add Integration → "WLED Effects"
+1. **Open HACS** in Home Assistant
+2. Click **⋮** (three dots) → **Custom repositories**
+3. Add repository URL:
+   ```
+   https://github.com/tamaygz/hacs-wledext-effects
+   ```
+4. Select category: **Integration**
+5. Click **Add**
+6. Search for **"WLED Effects"** in HACS
+7. Click **Download**
+8. **Restart Home Assistant**
+9. Go to **Settings** → **Devices & Services** → **Add Integration**
+10. Search for **"WLED Effects"**
 
-### Basic Usage
+📖 **[Complete Installation Guide](docs/INSTALLATION.md)**
+
+## ⚡ Quick Start
 
 ```yaml
-# Start a temperature-reactive effect
-service: wled_effects.start_effect
-data:
-  device_id: my_wled
-  effect_name: state_sync
-  config:
-    state_entity: sensor.living_room_temperature
-    min_value: 15
-    max_value: 30
-    color_low: "0,0,255"    # Blue for cold
-    color_high: "255,0,0"   # Red for hot
-    animation_mode: fill
-    transition_mode: smooth
+# 1. Add the integration (via UI)
+# 2. Select your WLED device
+# 3. Choose an effect (try Rainbow Wave!)
+# 4. Turn it on!
+
+service: switch.turn_on
+target:
+  entity_id: switch.wled_effects_rainbow_wave
 ```
 
-## 🎨 Built-in Effects
+📖 **[5-Minute Quick Start Guide](docs/QUICK_START.md)**
 
-### 1. Rainbow Wave
-Animated rainbow that flows across the LED strip with configurable speed and wavelength.
+## 🎨 Effects
 
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: rainbow_wave
-  config:
-    wave_speed: 10.0
-    wave_length: 60
-    reverse_direction: false  # Set true to reverse
-```
+| Effect | Purpose | Best For |
+|--------|---------|----------|
+| **Rainbow Wave** | Flowing rainbow animation | Decoration, ambient lighting |
+| **Segment Fade** | Color transitions | Mood lighting |
+| **Loading** | Moving progress bar | Progress indicators |
+| **State Sync** | Data visualization | Sensor monitoring |
+| **Breathe** | Gentle pulsing | Notifications, alerts |
+| **Meter** | Gauge/bar chart | CPU, battery, temperature |
+| **Sparkle** | Twinkling effect | Activity indicators |
+| **Chase** | Scanner animation | Processing, retro effects |
+| **Alert** | Multi-severity alerts | Security, warnings |
 
-### 2. Segment Fade
-Smooth color transitions between multiple colors.
+📖 **[Complete Effects Reference](docs/EFFECTS_REFERENCE.md)**
 
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: segment_fade
-  config:
-    color1: "255,0,0"
-    color2: "0,0,255"
-    transition_speed: 2.0
-```
+## 💡 Example Use Cases
 
-### 3. Loading
-Loading bar animation with trail effects.
+### Temperature Visualization
 
 ```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: loading
-  config:
-    color: "0,255,0"
-    bar_size: 10
-    speed: 0.05
-    reverse_direction: true  # Bar moves right-to-left
-    trail_fade: true
-```
-
-### 4. State Sync (Context-Aware)
-Visualize Home Assistant entity states with multiple animation modes.
-
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: state_sync
-  config:
-    state_entity: sensor.cpu_usage
-    min_value: 0
-    max_value: 100
-    animation_mode: fill      # fill, center, dual, solid
-    color_low: "0,255,0"      # Green for low
-    color_high: "255,0,0"     # Red for high
-    transition_mode: smooth   # Smooth sensor readings
-    reverse_direction: false
-```
-
-### 🆕 5. Breathe/Pulse (v2.1)
-Smooth breathing/pulsing pattern for notifications and alerts.
-
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: breathe
-  config:
-    color: "0,100,255"
-    pulse_rate: 1.0           # Cycles per second
-    state_entity: sensor.notification_priority
-    state_controls: "rate"    # Faster pulse = higher priority
-    easing: "sine"            # Natural breathing
-```
-
-### 🆕 6. Meter/Gauge (v2.1)
-Data visualization with threshold-based colors.
-
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: meter
-  config:
-    state_entity: sensor.cpu_usage
-    fill_mode: "bottom_up"    # bottom_up, center_out, bidirectional
-    color_low: "0,255,0"      # Green
-    color_medium: "255,255,0" # Yellow
-    color_high: "255,0,0"     # Red
-    threshold_medium: 50
-    threshold_high: 80
-    show_peak: true
-```
-
-### 🆕 7. Sparkle/Twinkle (v2.1)
-Activity indicator with random twinkling pixels.
-
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: sparkle
-  config:
-    sparkle_color: "255,255,255"
-    density: 0.1              # 0.0 to 1.0
-    state_entity: sensor.network_activity
-    state_controls: "density" # More activity = more sparkles
-    color_variation: true
-```
-
-### 🆕 8. Chase/Scanner (v2.1)
-Knight Rider / Cylon style chase pattern.
-
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: chase
-  config:
-    chase_color: "255,0,0"
-    chase_length: 10
-    scan_mode: true           # KITT scanner style
-    state_entity: sensor.processing_queue
-    state_controls: "speed"   # Faster chase = more items
-    fade_tail: true
-    bounce: true
-```
-
-### 🆕 9. Alert/Notification (v2.2)
-Multi-severity notification system with 8 flash patterns.
-
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: alert
-  config:
-    severity: auto            # Or: debug, info, warning, alert, critical
-    state_entity: sensor.system_health
-    pattern: auto             # Auto-selects based on severity
-    escalate_after: 60        # Escalate if not acknowledged
-    acknowledge_entity: input_boolean.alert_ack
-    max_duration: 300
-```
-
-## 🎯 Advanced Use Cases
-
-### Multi-Sensor Ambient Lighting
-```yaml
-service: wled_effects.start_effect
-data:
-  effect_name: state_sync
-  config:
-    state_entity: sensor.ambient_light
-    reactive_inputs:
-      - sensor.ambient_light
-      - sensor.motion_activity
-      - sensor.circadian_brightness
-    blend_mode: max
-    freeze_on_manual: true  # Pause if manually adjusted
-    transition_mode: smooth
-```
-
-### Threshold-Triggered Effects
-```yaml
-# Effect configuration with trigger
+effect_type: state_sync
 config:
-  state_entity: sensor.server_temperature
-  trigger_config:
-    trigger_type: threshold
-    entity_id: sensor.server_temperature
-    threshold: 70
-    comparison: ">"
-    # Fires callback when temp > 70°C
+  state_entity: sensor.living_room_temperature
+  min_value: 15
+  max_value: 30
+  color_low: "0,0,255"    # Blue (cold)
+  color_high: "255,0,0"   # Red (hot)
+  animation_mode: fill
 ```
 
-## 🛠️ Services
+### CPU Usage Monitor
 
-### `wled_effects.start_effect`
-Start an effect with configuration.
+```yaml
+effect_type: meter
+config:
+  state_entity: sensor.processor_use
+  threshold_medium: 60
+  threshold_high: 85
+  show_peak: true
+  # Green <60%, yellow 60-85%, red >85%
+```
 
-### `wled_effects.stop_effect`
-Stop the currently running effect.
+### Security Alert
 
-### `wled_effects.update_effect_config`
-Update effect configuration without restarting.
+```yaml
+effect_type: alert
+config:
+  severity: critical
+  pattern: strobe
+  acknowledge_entity: input_boolean.security_ack
+  max_duration: 300
+```
 
-### `wled_effects.get_effect_stats`
-Get performance metrics for running effect.
+### Motion-Activated Rainbow
 
-## 📊 Entities
+```yaml
+automation:
+  - alias: "Motion Rainbow"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.motion
+        to: 'on'
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.wled_effects_rainbow_wave
+```
 
-Each integration creates:
-- **Switch**: Effect on/off, auto-restart
-- **Number**: Brightness, speed, LED range
-- **Select**: Effect selection, animation modes
-- **Sensor**: Status, frame rate, latency, error rate, uptime
-- **Button**: Restart effect, clear stats
+## 🎯 Advanced Features
 
-## 🧩 Creating Custom Effects
+### Context-Aware
+
+Effects react to your smart home in real-time:
+
+- **Multi-Input Blending**: Combine multiple sensors
+- **Trigger System**: Respond to events, thresholds, time
+- **Data Mapping**: Transform values with interpolation curves
+- **Smooth Transitions**: Eliminate jittery sensor readings
+- **Manual Override**: Pause automation on manual control
+
+### Multi-Zone Control
+
+Divide your LED strip into independent zones:
+
+```yaml
+effect_type: state_sync
+config:
+  zone_count: 3
+  # Zone 0: CPU
+  # Zone 1: Memory
+  # Zone 2: Disk
+```
+
+### State-Driven Effects
+
+Every effect can optionally react to Home Assistant states:
+
+```yaml
+effect_type: breathe
+config:
+  pulse_rate: 1.0
+  state_entity: sensor.notification_priority
+  state_controls: rate
+  # Higher priority = faster pulse
+```
+
+📖 **[Context-Aware Features Guide](docs/CONTEXT_AWARE_FEATURES.md)**  
+📖 **[Advanced Guide](docs/ADVANCED_GUIDE.md)**
+
+## 📚 Documentation
+
+### Getting Started
+- **[Installation Guide](docs/INSTALLATION.md)** - Detailed installation instructions
+- **[Quick Start Guide](docs/QUICK_START.md)** - Your first effect in 5 minutes
+- **[Effects Reference](docs/EFFECTS_REFERENCE.md)** - All 9 effects documented
+
+### Advanced
+- **[Context-Aware Features](docs/CONTEXT_AWARE_FEATURES.md)** - Smart home integration
+- **[Advanced Guide](docs/ADVANCED_GUIDE.md)** - Triggers, automation, optimization
+- **[Services API](docs/SERVICES_API.md)** - Service reference
+- **[Effect Development](docs/EFFECT_DEVELOPMENT.md)** - Create custom effects
+
+### Support
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[GitHub Issues](https://github.com/tamaygz/hacs-wledext-effects/issues)** - Report bugs
+- **[GitHub Discussions](https://github.com/tamaygz/hacs-wledext-effects/discussions)** - Ask questions
+
+## 🛠️ Entities Created
+
+Each effect creates these entities:
+
+| Entity | Purpose | Example |
+|--------|---------|---------|
+| **Switch** | Turn effect on/off | `switch.wled_effects_rainbow_wave` |
+| **Number** | Brightness, speed | `number.wled_effects_rainbow_wave_brightness` |
+| **Select** | Effect modes | `select.wled_effects_state_sync_animation_mode` |
+| **Sensor** | Status, stats | `sensor.wled_effects_rainbow_wave_frame_rate` |
+| **Button** | Restart effect | `button.wled_effects_rainbow_wave_restart` |
+
+## 🔧 Custom Effects
+
+Create your own effects - they're auto-discovered!
 
 ```python
-from ..effects.base import WLEDEffectBase
-from ..effects.registry import register_effect
+from .base import WLEDEffectBase
+from .registry import register_effect
 
 @register_effect
 class MyEffect(WLEDEffectBase):
     """My custom effect."""
     
     async def run_effect(self) -> None:
-        """Effect logic."""
-        # Check manual override
-        if await self.check_manual_override():
-            return
-        
-        # Generate colors
-        colors = self._generate_colors()
-        
-        # Apply reverse if configured
-        colors = self.apply_reverse(colors)
-        
-        # Send to WLED
-        await self.send_wled_command(
-            on=True,
-            brightness=self.brightness,
-            color_primary=colors[0],
-        )
+        """Effect logic here."""
+        # Your code...
 ```
 
-Place in `custom_components/wled_effects/effects/` and it will be auto-discovered!
+Place in `custom_components/wled_context_effects/effects/` and restart!
 
-## 📚 Documentation
-
-- **[Context-Aware Features Guide](CONTEXT_AWARE_FEATURES.md)** - Complete guide to v2.0 features
-- **[Implementation Status](IMPLEMENTATION_COMPLETE.md)** - Development completion summary
-- **[Verification Checklist](VERIFICATION_CHECKLIST.md)** - Quality assurance checks
+📖 **[Effect Development Guide](docs/EFFECT_DEVELOPMENT.md)**
 
 ## 🤝 Contributing
 
-Contributions welcome! See our documentation for:
-- Effect development guide
-- Architecture overview
-- Testing procedures
+Contributions welcome! 
+
+- **Effects**: Create and share new effects
+- **Documentation**: Improve guides and examples
+- **Bug Reports**: Help us improve quality
+- **Feature Requests**: Suggest new capabilities
 
 ## 📝 License
 
-MIT License - See LICENSE file for details
+MIT License - See [LICENSE](LICENSE) file for details
 
 ## 🙏 Acknowledgments
 
-- Home Assistant Core Team
-- WLED Project
-- HACS Team
+- **Home Assistant Core Team**
+- **WLED Project**
+- **HACS Team**
 - Inspired by: LedFx, Adaptive Lighting, Sound Reactive WLED
+
+---
+
+## 🆕 Version History
+
+- **v1.0.0** - Initial release with 9 effects, context-aware features, full documentation
+- Core effects: Rainbow Wave, Segment Fade, Loading, State Sync
+- Advanced effects: Breathe, Meter, Sparkle, Chase, Alert
+- Context-aware system with triggers, multi-input, data mapping
+- Complete entity support and automation integration
 
 ---
 
 **Made with ❤️ for the Home Assistant community**
 
 **Repository**: [hacs-wledext-effects](https://github.com/tamaygz/hacs-wledext-effects)  
-**Version**: 2.0 - Context-Aware Architecture  
-**Status**: ✅ Core Complete - Context-Aware Features Implemented
+**Status**: ✅ Production Ready  
+**Version**: 1.0.0
 
