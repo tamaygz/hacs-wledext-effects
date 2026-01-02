@@ -276,3 +276,20 @@ class LoadingEffect(WLEDEffectBase):
         })
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.color = self._parse_color(
+            self.config.get("color", "0,255,0")
+        )
+        self.bar_size = self.config.get("bar_size", 5)
+        self.speed = self.config.get("speed", 0.03)
+        self.trail_fade = self.config.get("trail_fade", True)
+        self.state_entity = self.config.get("state_entity")
+        self.state_attribute = self.config.get("state_attribute")
+        self.state_controls = self.config.get("state_controls", "speed")
+        self.state_min = self.config.get("state_min", 0.0)
+        self.state_max = self.config.get("state_max", 100.0)

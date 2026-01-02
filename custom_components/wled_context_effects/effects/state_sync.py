@@ -283,3 +283,21 @@ class StateSyncEffect(WLEDEffectBase):
         schema["required"].append("state_entity")
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.state_entity = self.config.get("state_entity", "")
+        self.state_attribute = self.config.get("state_attribute")
+        self.min_value = self.config.get("min_value", 0.0)
+        self.max_value = self.config.get("max_value", 100.0)
+        self.animation_mode = self.config.get("animation_mode", "fill")
+        self.color_low = self._parse_color(
+            self.config.get("color_low", "255,0,0")
+        )
+        self.color_high = self._parse_color(
+            self.config.get("color_high", "0,255,0")
+        )
+        self.update_interval = self.config.get("update_interval", 0.05)

@@ -173,15 +173,9 @@ class EffectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Update config dict
         self.effect.config.update(config)
         
-        # Apply common config updates
-        if "brightness" in config:
-            self.effect.brightness = config["brightness"]
-        if "segment_id" in config:
-            self.effect.segment_id = config["segment_id"]
-        if "start_led" in config:
-            self.effect.start_led = config["start_led"]
-        if "stop_led" in config:
-            self.effect.stop_led = config["stop_led"]
+        # Reload effect configuration from config dict
+        # This updates all instance variables from the config dictionary
+        self.effect.reload_config()
         
         await self.async_request_refresh()
 

@@ -234,3 +234,17 @@ class RainbowWaveEffect(WLEDEffectBase):
         })
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.wave_speed = self.config.get("wave_speed", 1.0)
+        self.wave_length = self.config.get("wave_length", 60)
+        self.update_interval = self.config.get("update_interval", 0.03)
+        self.state_entity = self.config.get("state_entity")
+        self.state_attribute = self.config.get("state_attribute")
+        self.state_controls = self.config.get("state_controls", "speed")
+        self.state_min = self.config.get("state_min", 0.0)
+        self.state_max = self.config.get("state_max", 100.0)

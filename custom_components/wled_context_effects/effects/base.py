@@ -767,3 +767,39 @@ class WLEDEffectBase:
     def get_effect_description(self) -> str:
         """Return effect description from docstring."""
         return self.__class__.__doc__ or "No description available"
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary.
+        
+        This method updates instance variables from the config dictionary.
+        Subclasses should override this to reload their specific configuration.
+        """
+        # Reload common config
+        self.segment_id = self.config.get("segment_id", DEFAULT_SEGMENT_ID)
+        self.start_led = self.config.get("start_led")
+        self.stop_led = self.config.get("stop_led")
+        self.brightness = self.config.get("brightness", DEFAULT_BRIGHTNESS)
+        
+        # Context-aware features
+        self.reverse_direction = self.config.get("reverse_direction", DEFAULT_REVERSE_DIRECTION)
+        self.freeze_on_manual = self.config.get("freeze_on_manual", DEFAULT_FREEZE_ON_MANUAL)
+        self.blend_mode = self.config.get("blend_mode", DEFAULT_BLEND_MODE)
+        
+        # Update transition mode and recreate smoother if needed
+        new_transition_mode = self.config.get("transition_mode", DEFAULT_TRANSITION_MODE)
+        if new_transition_mode != self.transition_mode:
+            self.transition_mode = new_transition_mode
+            if self.transition_mode == TRANSITION_MODE_SMOOTH:
+                self.value_smoother = ValueSmoother(alpha=0.3)
+            else:
+                self.value_smoother = None
+        
+        self.zone_count = self.config.get("zone_count", DEFAULT_ZONE_COUNT)
+        self.reactive_inputs = self.config.get("reactive_inputs", [])
+        
+        _LOGGER.debug(
+            "Reloaded config for effect %s: brightness=%d, segment_id=%d",
+            self.__class__.__name__,
+            self.brightness,
+            self.segment_id,
+        )

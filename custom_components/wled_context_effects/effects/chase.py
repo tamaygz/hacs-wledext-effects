@@ -344,3 +344,25 @@ class ChaseEffect(WLEDEffectBase):
         })
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.chase_color = self._parse_color(
+            self.config.get("chase_color", "255,100,0")
+        )
+        self.background_color = self._parse_color(
+            self.config.get("background_color", "0,0,0")
+        )
+        self.chase_length = self.config.get("chase_length", 5)
+        self.speed = self.config.get("speed", 0.02)
+        self.fade_tail = self.config.get("fade_tail", True)
+        self.bounce = self.config.get("bounce", True)
+        self.scan_mode = self.config.get("scan_mode", False)
+        self.state_entity = self.config.get("state_entity")
+        self.state_attribute = self.config.get("state_attribute")
+        self.state_controls = self.config.get("state_controls", "speed")
+        self.state_min = self.config.get("state_min", 0.0)
+        self.state_max = self.config.get("state_max", 100.0)

@@ -341,3 +341,23 @@ class SegmentFadeEffect(WLEDEffectBase):
         })
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.color1 = self._parse_color(
+            self.config.get("color1", "255,0,0")
+        )
+        self.color2 = self._parse_color(
+            self.config.get("color2", "0,0,255")
+        )
+        self.transition_speed = self.config.get("transition_speed", 1.0)
+        self.steps = self.config.get("steps", 100)
+        self.pattern_mode = self.config.get("pattern_mode", "gradient")
+        self.state_entity = self.config.get("state_entity")
+        self.state_attribute = self.config.get("state_attribute")
+        self.state_controls = self.config.get("state_controls", "speed")
+        self.state_min = self.config.get("state_min", 0.0)
+        self.state_max = self.config.get("state_max", 100.0)

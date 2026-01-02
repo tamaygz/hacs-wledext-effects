@@ -346,3 +346,30 @@ class MeterEffect(WLEDEffectBase):
         })
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.fill_mode = self.config.get("fill_mode", "bottom_up")
+        self.default_level = self.config.get("default_level", 50.0)
+        self.color_low = self._parse_color(
+            self.config.get("color_low", "0,255,0")
+        )
+        self.color_medium = self._parse_color(
+            self.config.get("color_medium", "255,255,0")
+        )
+        self.color_high = self._parse_color(
+            self.config.get("color_high", "255,0,0")
+        )
+        self.threshold_medium = self.config.get("threshold_medium", 50.0)
+        self.threshold_high = self.config.get("threshold_high", 80.0)
+        self.show_peak = self.config.get("show_peak", False)
+        self.background_color = self._parse_color(
+            self.config.get("background_color", "10,10,10")
+        )
+        self.state_entity = self.config.get("state_entity")
+        self.state_attribute = self.config.get("state_attribute")
+        self.state_min = self.config.get("state_min", 0.0)
+        self.state_max = self.config.get("state_max", 100.0)
