@@ -1,6 +1,6 @@
 # Effects Quick Reference
 
-## All Available Effects (8 Total)
+## All Available Effects (9 Total)
 
 ### Classic Effects (v1.0)
 
@@ -19,6 +19,7 @@
 | **Meter/Gauge** | Metrics display | Fill bar, threshold colors | CPU, battery, temperature gauges |
 | **Sparkle/Twinkle** | Activity indicator | Random twinkles, density control | Network activity, message counters |
 | **Chase/Scanner** | Directional animation | Moving pattern, KITT mode | Processing, data flow, classic look |
+| **Alert/Notification** | Attention-grabbing alerts | Multi-severity, 8 patterns, acknowledgment | Security alerts, warnings, critical notifications |
 
 ---
 
@@ -36,6 +37,7 @@ All effects support optional state input with different control modes:
 | **Meter** | Direct fill level | Fill: 0-100%, threshold colors |
 | **Sparkle** | `density`, `speed`, `both` | Density: 0.01-1.0, Fade rate: 0.5-0.95 |
 | **Chase** | `speed`, `direction`, `length`, `both` | Speed: 0.001-0.5s, Length: 1-20 LEDs |
+| **Alert** | Auto-severity from state | Threshold-based severity mapping, acknowledgment |
 
 ---
 
@@ -71,7 +73,8 @@ All effects support the complete feature set:
 - Loading (progress bars)
 
 **Notifications / Alerts:**
-- Breathe (pulsing alerts)
+- Alert (multi-severity, most configurable)
+- Breathe (calming/gentle alerts)
 - Sparkle (activity burst)
 - Chase (directional indicator)
 
@@ -143,6 +146,7 @@ config:
 | Meter | Low | Minimal | 20 FPS |
 | Sparkle | Med | Low | 20 FPS |
 | Chase | Low | Minimal | Variable |
+| Alert | Low-Med | Low | 20 FPS |
 
 All effects:
 - Non-blocking async
@@ -166,3 +170,4 @@ All effects:
 - **v1.0**: Rainbow Wave, Segment Fade, Loading, State Sync
 - **v2.0**: Context-aware features (zones, triggers, data mapping)
 - **v2.1**: New effects (Breathe, Meter, Sparkle, Chase) with full feature integration
+- **v2.2**: Alert effect - Multi-severity notification system with 8 patterns, acknowledgment, and auto-escalation

@@ -9,9 +9,10 @@ A modern, modular Home Assistant integration for managing advanced WLED effects 
 ## ✨ Features
 
 ### Core Features
-- **🎨 Advanced Effects**: 8 pre-built effects with extensible framework
+- **🎨 Advanced Effects**: 9 pre-built effects with extensible framework
   - **Classic**: Rainbow Wave, Segment Fade, Loading, State Sync
   - **🆕 v2.1**: Breathe/Pulse, Meter/Gauge, Sparkle/Twinkle, Chase/Scanner
+  - **🆕 v2.2**: Alert/Notification (multi-severity, highly customizable)
 - **🔄 Real-time State Sync**: Monitor Home Assistant entities and visualize their states on LEDs
 - **📊 Live Monitoring**: Real-time stats tracking (frame rate, latency, error rate)
 - **🛠️ Full Entity Controls**: Switch, Number, Select, Sensor, and Button entities for complete effect management
@@ -31,7 +32,7 @@ A modern, modular Home Assistant integration for managing advanced WLED effects 
 - **✋ Manual Override Detection**: Automatically pause automation on manual WLED control (like Adaptive Lighting)
 - **🎚️ State-Reactive Effects**: All effects can optionally react to entity states (speed, position, size, etc.)
 
-**[📖 Context-Aware Documentation](CONTEXT_AWARE_FEATURES.md)** | **[📖 State-Reactive Effects Guide](STATE_REACTIVE_EFFECTS.md)** | **[📖 New Effects Guide (v2.1)](NEW_EFFECTS_GUIDE.md)**
+**[📖 Context-Aware Documentation](CONTEXT_AWARE_FEATURES.md)** | **[📖 State-Reactive Effects Guide](STATE_REACTIVE_EFFECTS.md)** | **[📖 New Effects Guide (v2.1)](NEW_EFFECTS_GUIDE.md)** | **[📖 Alert Effect Guide (v2.2)](ALERT_EFFECT_GUIDE.md)**
 
 ## 📋 Requirements
 
@@ -190,6 +191,22 @@ data:
     state_controls: "speed"   # Faster chase = more items
     fade_tail: true
     bounce: true
+```
+
+### 🆕 9. Alert/Notification (v2.2)
+Multi-severity notification system with 8 flash patterns.
+
+```yaml
+service: wled_effects.start_effect
+data:
+  effect_name: alert
+  config:
+    severity: auto            # Or: debug, info, warning, alert, critical
+    state_entity: sensor.system_health
+    pattern: auto             # Auto-selects based on severity
+    escalate_after: 60        # Escalate if not acknowledged
+    acknowledge_entity: input_boolean.alert_ack
+    max_duration: 300
 ```
 
 ## 🎯 Advanced Use Cases
