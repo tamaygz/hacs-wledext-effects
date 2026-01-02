@@ -1,6 +1,6 @@
 {
-  "domain": "wled_effects",
-  "name": "WLED Effects",
+  "domain": "wled_context_effects",
+  "name": "WLED Context Effects",
   "codeowners": ["@tamaygz"],
   "config_flow": true,
   "dependencies": ["wled"],

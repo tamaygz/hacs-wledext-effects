@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Final
 
 # Integration domain
-DOMAIN: Final = "wled_effects"
+DOMAIN: Final = "wled_context_effects"
 
 # Platforms
 PLATFORMS: Final = ["switch", "number", "select", "sensor", "button"]
