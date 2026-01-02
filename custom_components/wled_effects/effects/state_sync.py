@@ -141,16 +141,23 @@ class StateSyncEffect(WLEDEffectBase):
 
     async def run_effect(self) -> None:
         """Render state visualization."""
+        # Check manual override
+        if await self.check_manual_override():
+            await asyncio.sleep(0.1)
+            return
+
         # Get current value (0.0 to 1.0)
         value = self._get_current_value()
+
+        # Apply smoothing if enabled
+        if self.value_smoother:
+            value = self.value_smoother.smooth(value)
         
         led_count = (self.stop_led - self.start_led) + 1
         lit_count = int(led_count * value)
         
-        # Choose color based on value
-        current_color = self._interpolate_color(
-            self.color_low, self.color_high, value
-        )
+        # Use base class color interpolation
+        current_color = self.interpolate_color(self.color_low, self.color_high, value)
         
         if self.animation_mode == "fill":
             # Fill from start to position
@@ -186,6 +193,9 @@ class StateSyncEffect(WLEDEffectBase):
         else:  # solid
             # Entire strip same color based on value
             colors = [current_color] * led_count
+        
+        # Apply reverse if configured
+        colors = self.apply_reverse(colors)
         
         # Send to WLED
         await self.send_wled_command(

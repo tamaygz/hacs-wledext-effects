@@ -47,6 +47,11 @@ class RainbowWaveEffect(WLEDEffectBase):
 
     async def run_effect(self) -> None:
         """Render rainbow wave animation."""
+        # Check manual override
+        if await self.check_manual_override():
+            await asyncio.sleep(0.1)
+            return
+
         # Generate rainbow colors for each LED
         colors: list[tuple[int, int, int]] = []
         
@@ -66,6 +71,9 @@ class RainbowWaveEffect(WLEDEffectBase):
                 int(rgb[2] * 255),
             )
             colors.append(color)
+
+        # Apply reverse direction if configured
+        colors = self.apply_reverse(colors)
 
         # Send colors to WLED device
         # For individual LED control, we need to set each LED

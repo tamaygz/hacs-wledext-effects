@@ -89,11 +89,16 @@ class SegmentFadeEffect(WLEDEffectBase):
 
     async def run_effect(self) -> None:
         """Render fade animation."""
+        # Check manual override
+        if await self.check_manual_override():
+            await asyncio.sleep(0.1)
+            return
+
         # Calculate current position (0.0 to 1.0)
         position = self.current_step / self.steps
         
-        # Interpolate color
-        current_color = self._interpolate_color(self.color1, self.color2, position)
+        # Interpolate color using base class method
+        current_color = self.interpolate_color(self.color1, self.color2, position)
         
         # Send to WLED
         await self.send_wled_command(

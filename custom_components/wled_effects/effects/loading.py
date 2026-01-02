@@ -65,6 +65,11 @@ class LoadingEffect(WLEDEffectBase):
 
     async def run_effect(self) -> None:
         """Render loading bar animation."""
+        # Check manual override
+        if await self.check_manual_override():
+            await asyncio.sleep(0.1)
+            return
+
         led_count = (self.stop_led - self.start_led) + 1
         
         # Calculate which LEDs should be lit
@@ -89,6 +94,9 @@ class LoadingEffect(WLEDEffectBase):
             else:
                 colors.append((0, 0, 0))  # Off
         
+        # Apply reverse direction if configured
+        colors = self.apply_reverse(colors)
+
         # Send to WLED - set primary color to the main bar color
         await self.send_wled_command(
             on=True,
