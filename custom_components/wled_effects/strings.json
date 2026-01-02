@@ -1,0 +1,134 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select WLED Device",
+        "description": "Choose a WLED device or enter manually",
+        "data": {
+          "wled_device_id": "WLED Device",
+          "wled_host": "Manual IP Address (optional)"
+        }
+      },
+      "effect_type": {
+        "title": "Select Effect Type",
+        "description": "Choose the type of effect to create",
+        "data": {
+          "effect_type": "Effect Type"
+        }
+      },
+      "configure": {
+        "title": "Configure {effect_type}",
+        "description": "Set up your effect parameters",
+        "data": {
+          "effect_name": "Effect Name",
+          "segment_id": "Segment ID",
+          "auto_detect": "Auto-detect LED range",
+          "start_led": "Start LED",
+          "stop_led": "Stop LED",
+          "brightness": "Brightness",
+          "auto_start": "Start on Home Assistant boot"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to WLED device",
+      "invalid_host": "Invalid host address",
+      "already_configured": "This effect is already configured",
+      "unknown": "Unknown error occurred",
+      "invalid_segment": "Invalid segment ID",
+      "invalid_led_range": "Invalid LED range"
+    },
+    "abort": {
+      "already_configured": "This effect configuration already exists"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Effect",
+        "description": "Modify effect parameters",
+        "data": {
+          "effect_name": "Effect Name",
+          "segment_id": "Segment ID",
+          "start_led": "Start LED",
+          "stop_led": "Stop LED",
+          "brightness": "Brightness",
+          "auto_start": "Start on Home Assistant boot",
+          "enabled": "Enabled"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "effect": {
+        "name": "{effect_name}"
+      }
+    },
+    "number": {
+      "brightness": {
+        "name": "Brightness"
+      },
+      "speed": {
+        "name": "Speed"
+      },
+      "segment": {
+        "name": "Segment ID"
+      },
+      "start_led": {
+        "name": "Start LED"
+      },
+      "stop_led": {
+        "name": "Stop LED"
+      }
+    },
+    "select": {
+      "mode": {
+        "name": "Animation Mode"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Status",
+        "state": {
+          "running": "Running",
+          "stopped": "Stopped",
+          "error": "Error"
+        }
+      },
+      "success_rate": {
+        "name": "Success Rate"
+      },
+      "last_error": {
+        "name": "Last Error"
+      }
+    },
+    "button": {
+      "run_once": {
+        "name": "Run Once"
+      }
+    }
+  },
+  "services": {
+    "start_effect": {
+      "name": "Start Effect",
+      "description": "Start a configured effect"
+    },
+    "stop_effect": {
+      "name": "Stop Effect",
+      "description": "Stop a running effect"
+    },
+    "run_once": {
+      "name": "Run Once",
+      "description": "Run effect once (single iteration)"
+    },
+    "set_config": {
+      "name": "Set Configuration",
+      "description": "Update effect configuration dynamically"
+    },
+    "reload": {
+      "name": "Reload",
+      "description": "Reload effect modules"
+    }
+  }
+}

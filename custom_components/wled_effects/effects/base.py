@@ -1,0 +1,365 @@
+"""Base classes and protocols for WLED effects."""
+from __future__ import annotations
+
+import asyncio
+import logging
+from abc import abstractmethod
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+from wled import WLED
+
+from .const import (
+    DEFAULT_BRIGHTNESS,
+    DEFAULT_SEGMENT_ID,
+)
+from .errors import EffectExecutionError
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class EffectProtocol(Protocol):
+    """Protocol defining the effect interface."""
+
+    async def start(self) -> None:
+        """Start the effect (continuous mode)."""
+        ...
+
+    async def stop(self) -> None:
+        """Stop the effect."""
+        ...
+
+    async def run_once(self) -> None:
+        """Execute effect once."""
+        ...
+
+    @property
+    def running(self) -> bool:
+        """Return if effect is currently running."""
+        ...
+
+    @classmethod
+    def config_schema(cls) -> dict[str, Any]:
+        """Return JSON schema for effect configuration."""
+        ...
+
+    def get_effect_name(self) -> str:
+        """Return human-readable effect name."""
+        ...
+
+
+class WLEDEffectBase:
+    """Base class for WLED effects using python-wled library.
+    
+    This class provides common functionality for all WLED effects including:
+    - Lifecycle management (start/stop/run_once)
+    - WLED communication via python-wled
+    - Auto-detection of LED ranges
+    - Error handling and logging
+    - Configuration management
+    
+    Subclasses should implement the run_effect() method with their custom logic.
+    """
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        wled_client: WLED,
+        config: dict[str, Any],
+    ) -> None:
+        """Initialize effect.
+
+        Args:
+            hass: Home Assistant instance
+            wled_client: WLED client instance from python-wled library
+            config: Effect configuration dictionary
+        """
+        self.hass = hass
+        self.wled = wled_client
+        self.config = config
+        self._running = False
+        self._task: asyncio.Task | None = None
+        self._last_error: str | None = None
+        self._command_count = 0
+        self._success_count = 0
+        self._failure_count = 0
+        self._start_time: datetime | None = None
+
+        # Extract common config
+        self.segment_id: int = config.get("segment_id", DEFAULT_SEGMENT_ID)
+        self.start_led: int | None = config.get("start_led")
+        self.stop_led: int | None = config.get("stop_led")
+        self.brightness: int = config.get("brightness", DEFAULT_BRIGHTNESS)
+
+        _LOGGER.debug(
+            "Initialized effect %s with config: %s",
+            self.__class__.__name__,
+            config,
+        )
+
+    async def setup(self) -> bool:
+        """Setup effect (called once after init).
+
+        Returns:
+            True if setup successful
+        """
+        try:
+            # Auto-detect LED range if not specified
+            if self.start_led is None or self.stop_led is None:
+                await self._auto_detect_range()
+
+            _LOGGER.info(
+                "Effect %s setup complete. LED range: %d-%d, Segment: %d",
+                self.__class__.__name__,
+                self.start_led,
+                self.stop_led,
+                self.segment_id,
+            )
+            return True
+        except Exception as err:
+            _LOGGER.error("Failed to setup effect: %s", err)
+            return False
+
+    async def start(self) -> None:
+        """Start effect in continuous mode."""
+        if self._running:
+            _LOGGER.warning("Effect %s is already running", self.__class__.__name__)
+            return
+
+        _LOGGER.info("Starting effect %s", self.__class__.__name__)
+        self._running = True
+        self._start_time = datetime.now()
+        self._last_error = None
+        self._task = self.hass.async_create_task(self._run_loop())
+
+    async def stop(self) -> None:
+        """Stop the effect."""
+        if not self._running:
+            _LOGGER.debug("Effect %s is not running", self.__class__.__name__)
+            return
+
+        _LOGGER.info("Stopping effect %s", self.__class__.__name__)
+        self._running = False
+
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+
+        self._start_time = None
+
+    async def run_once(self) -> None:
+        """Run effect once."""
+        _LOGGER.debug("Running effect %s once", self.__class__.__name__)
+        try:
+            await self.run_effect()
+        except Exception as err:
+            _LOGGER.error("Error running effect once: %s", err)
+            self._last_error = str(err)
+            raise EffectExecutionError(f"Failed to run effect: {err}") from err
+
+    async def _run_loop(self) -> None:
+        """Main effect loop (continuous mode)."""
+        _LOGGER.debug("Starting effect loop for %s", self.__class__.__name__)
+
+        while self._running:
+            try:
+                await self.run_effect()
+                self._success_count += 1
+            except asyncio.CancelledError:
+                _LOGGER.debug("Effect loop cancelled")
+                break
+            except Exception as err:
+                _LOGGER.error("Error in effect loop: %s", err)
+                self._last_error = str(err)
+                self._failure_count += 1
+
+                # Continue running despite errors, but add a delay
+                await asyncio.sleep(1)
+
+    @abstractmethod
+    async def run_effect(self) -> None:
+        """Effect implementation - override in subclass.
+        
+        This method is called repeatedly in continuous mode or once in run_once mode.
+        Implement your effect logic here.
+        
+        Example:
+            async def run_effect(self) -> None:
+                # Generate colors
+                colors = self._generate_colors()
+                
+                # Send to WLED
+                await self.send_wled_command(
+                    color_primary=colors,
+                    brightness=self.brightness
+                )
+                
+                # Wait before next update
+                await asyncio.sleep(0.1)
+        """
+        raise NotImplementedError
+
+    async def send_wled_command(self, **kwargs: Any) -> bool:
+        """Send command to WLED device.
+
+        Args:
+            **kwargs: Arguments passed to wled.segment()
+
+        Returns:
+            True if command successful
+
+        Raises:
+            EffectExecutionError: If command fails
+        """
+        self._command_count += 1
+
+        try:
+            # Add segment_id to kwargs if not present
+            if "segment_id" not in kwargs:
+                kwargs["segment_id"] = self.segment_id
+
+            _LOGGER.debug(
+                "Sending WLED command to segment %d: %s",
+                self.segment_id,
+                kwargs,
+            )
+
+            await self.wled.segment(**kwargs)
+            self._success_count += 1
+            return True
+
+        except Exception as err:
+            _LOGGER.error("WLED command failed: %s", err)
+            self._last_error = str(err)
+            self._failure_count += 1
+            raise EffectExecutionError(f"WLED command failed: {err}") from err
+
+    async def _auto_detect_range(self) -> None:
+        """Auto-detect LED range from device."""
+        try:
+            _LOGGER.debug("Auto-detecting LED range for WLED device")
+            device = await self.wled.update()
+
+            if device and device.info and device.info.leds:
+                led_count = device.info.leds.count
+                if led_count and led_count > 0:
+                    self.start_led = 0
+                    self.stop_led = led_count - 1
+                    _LOGGER.info(
+                        "Auto-detected LED range: 0-%d (%d LEDs)",
+                        self.stop_led,
+                        led_count,
+                    )
+                else:
+                    _LOGGER.warning("Device reported 0 LEDs, using defaults")
+                    self.start_led = 0
+                    self.stop_led = 59  # Default fallback
+            else:
+                _LOGGER.warning("Could not get device info, using defaults")
+                self.start_led = 0
+                self.stop_led = 59  # Default fallback
+
+        except Exception as err:
+            _LOGGER.error("Failed to auto-detect LED range: %s", err)
+            # Use sensible defaults
+            self.start_led = 0
+            self.stop_led = 59
+
+    @property
+    def running(self) -> bool:
+        """Return running state."""
+        return self._running
+
+    @property
+    def last_error(self) -> str | None:
+        """Return last error message."""
+        return self._last_error
+
+    @property
+    def command_count(self) -> int:
+        """Return total command count."""
+        return self._command_count
+
+    @property
+    def success_count(self) -> int:
+        """Return successful command count."""
+        return self._success_count
+
+    @property
+    def failure_count(self) -> int:
+        """Return failed command count."""
+        return self._failure_count
+
+    @property
+    def success_rate(self) -> float:
+        """Return success rate as percentage."""
+        if self._command_count == 0:
+            return 100.0
+        return (self._success_count / self._command_count) * 100
+
+    @property
+    def running_time(self) -> float | None:
+        """Return running time in seconds."""
+        if self._start_time is None:
+            return None
+        return (datetime.now() - self._start_time).total_seconds()
+
+    @classmethod
+    def config_schema(cls) -> dict[str, Any]:
+        """Return config schema for effect.
+
+        Override to add effect-specific fields.
+
+        Returns:
+            JSON schema dict
+        """
+        return {
+            "type": "object",
+            "properties": {
+                "effect_name": {
+                    "type": "string",
+                    "description": "Human-readable name for this effect",
+                },
+                "segment_id": {
+                    "type": "integer",
+                    "description": "WLED segment ID",
+                    "minimum": 0,
+                    "maximum": 31,
+                    "default": DEFAULT_SEGMENT_ID,
+                },
+                "start_led": {
+                    "type": "integer",
+                    "description": "First LED index",
+                    "minimum": 0,
+                },
+                "stop_led": {
+                    "type": "integer",
+                    "description": "Last LED index",
+                    "minimum": 0,
+                },
+                "brightness": {
+                    "type": "integer",
+                    "description": "Brightness (0-255)",
+                    "minimum": 0,
+                    "maximum": 255,
+                    "default": DEFAULT_BRIGHTNESS,
+                },
+            },
+            "required": ["effect_name"],
+        }
+
+    def get_effect_name(self) -> str:
+        """Return effect name."""
+        return self.__class__.__name__
+
+    def get_effect_description(self) -> str:
+        """Return effect description from docstring."""
+        return self.__class__.__doc__ or "No description available"

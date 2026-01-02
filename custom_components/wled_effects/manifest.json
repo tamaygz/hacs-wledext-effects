@@ -1,0 +1,13 @@
+{
+  "domain": "wled_effects",
+  "name": "WLED Effects",
+  "codeowners": ["@tamaygz"],
+  "config_flow": true,
+  "dependencies": ["wled"],
+  "documentation": "https://github.com/tamaygz/hacs-wledext-effects",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/tamaygz/hacs-wledext-effects/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
