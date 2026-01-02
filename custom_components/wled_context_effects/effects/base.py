@@ -23,6 +23,7 @@ from ..const import (
 from ..data_mapper import DataMapper, MultiInputBlender, ValueSmoother
 from ..errors import EffectExecutionError
 from ..trigger_manager import TriggerConfig, TriggerManager
+from ..wled_json_api import WLEDJsonApiClient
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -67,6 +68,7 @@ class WLEDEffectBase:
     This class provides common functionality for all WLED effects including:
     - Lifecycle management (start/stop/run_once)
     - WLED communication via python-wled
+    - Per-LED control via JSON API
     - Auto-detection of LED ranges
     - Error handling and logging
     - Configuration management
@@ -79,6 +81,7 @@ class WLEDEffectBase:
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client: WLEDJsonApiClient | None = None,
     ) -> None:
         """Initialize effect.
 
@@ -86,9 +89,11 @@ class WLEDEffectBase:
             hass: Home Assistant instance
             wled_client: WLED client instance from python-wled library
             config: Effect configuration dictionary
+            json_client: Optional JSON API client for per-LED control
         """
         self.hass = hass
         self.wled = wled_client
+        self.json_client = json_client
         self.config = config
         self._running = False
         self._task: asyncio.Task | None = None
@@ -129,12 +134,13 @@ class WLEDEffectBase:
         self.input_blender = MultiInputBlender()
 
         _LOGGER.debug(
-            "Initialized effect %s with config: %s (reverse=%s, zones=%d, reactive_inputs=%d)",
+            "Initialized effect %s with config: %s (reverse=%s, zones=%d, reactive_inputs=%d, json_api=%s)",
             self.__class__.__name__,
             config,
             self.reverse_direction,
             self.zone_count,
             len(self.reactive_inputs),
+            json_client is not None,
         )
 
     async def setup(self) -> bool:
@@ -285,6 +291,158 @@ class WLEDEffectBase:
             self._last_error = str(err)
             self._failure_count += 1
             raise EffectExecutionError(f"WLED command failed: {err}") from err
+
+    async def set_individual_leds(
+        self,
+        colors: list[tuple[int, int, int]],
+        start_index: int = 0,
+    ) -> bool:
+        """Set individual LED colors using JSON API.
+
+        This method provides true per-LED control using the WLED JSON API.
+        Automatically handles batching for large LED arrays.
+
+        Args:
+            colors: List of RGB tuples (one per LED)
+            start_index: Starting LED index in segment (default 0)
+
+        Returns:
+            True if successful
+
+        Raises:
+            EffectExecutionError: If JSON client not available or command fails
+        """
+        if self.json_client is None:
+            raise EffectExecutionError(
+                "JSON API client required for per-LED control. "
+                "Pass json_client when creating effect."
+            )
+
+        self._command_count += 1
+
+        try:
+            _LOGGER.debug(
+                "Setting %d LEDs via JSON API on segment %d (start index: %d)",
+                len(colors),
+                self.segment_id,
+                start_index,
+            )
+
+            await self.json_client.set_individual_leds(
+                segment_id=self.segment_id,
+                colors=colors,
+                start_index=start_index,
+            )
+
+            self._success_count += 1
+            return True
+
+        except Exception as err:
+            _LOGGER.error("Per-LED control failed: %s", err)
+            self._last_error = str(err)
+            self._failure_count += 1
+            raise EffectExecutionError(f"Per-LED control failed: {err}") from err
+
+    async def set_led(
+        self,
+        led_index: int,
+        color: tuple[int, int, int],
+    ) -> bool:
+        """Set a single LED color using JSON API.
+
+        Args:
+            led_index: LED index within segment (0-based)
+            color: RGB color tuple
+
+        Returns:
+            True if successful
+
+        Raises:
+            EffectExecutionError: If JSON client not available or command fails
+        """
+        if self.json_client is None:
+            raise EffectExecutionError("JSON API client required for per-LED control")
+
+        self._command_count += 1
+
+        try:
+            await self.json_client.set_led(
+                segment_id=self.segment_id,
+                led_index=led_index,
+                color=color,
+            )
+
+            self._success_count += 1
+            return True
+
+        except Exception as err:
+            _LOGGER.error("Set LED failed: %s", err)
+            self._last_error = str(err)
+            self._failure_count += 1
+            raise EffectExecutionError(f"Set LED failed: {err}") from err
+
+    async def set_led_range(
+        self,
+        start: int,
+        stop: int,
+        color: tuple[int, int, int],
+    ) -> bool:
+        """Set a range of LEDs to the same color using JSON API.
+
+        Args:
+            start: Start LED index (inclusive)
+            stop: Stop LED index (inclusive)
+            color: RGB color tuple
+
+        Returns:
+            True if successful
+
+        Raises:
+            EffectExecutionError: If JSON client not available or command fails
+        """
+        if self.json_client is None:
+            raise EffectExecutionError("JSON API client required for per-LED control")
+
+        self._command_count += 1
+
+        try:
+            await self.json_client.set_led_range(
+                segment_id=self.segment_id,
+                start=start,
+                stop=stop,
+                color=color,
+            )
+
+            self._success_count += 1
+            return True
+
+        except Exception as err:
+            _LOGGER.error("Set LED range failed: %s", err)
+            self._last_error = str(err)
+            self._failure_count += 1
+            raise EffectExecutionError(f"Set LED range failed: {err}") from err
+
+    async def clear_individual_leds(self) -> bool:
+        """Clear individual LED control and return segment to effect mode.
+
+        Returns:
+            True if successful
+
+        Raises:
+            EffectExecutionError: If JSON client not available or command fails
+        """
+        if self.json_client is None:
+            _LOGGER.debug("JSON API client not available, skipping clear")
+            return True
+
+        try:
+            await self.json_client.clear_individual_leds(self.segment_id)
+            return True
+
+        except Exception as err:
+            _LOGGER.error("Clear individual LEDs failed: %s", err)
+            self._last_error = str(err)
+            raise EffectExecutionError(f"Clear individual LEDs failed: {err}") from err
 
     async def _auto_detect_range(self) -> None:
         """Auto-detect LED range from device."""

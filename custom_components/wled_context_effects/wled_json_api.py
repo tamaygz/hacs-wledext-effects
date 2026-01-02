@@ -1,0 +1,521 @@
+"""WLED JSON API client for comprehensive control including per-LED operations."""
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+import aiohttp
+
+from .errors import ConnectionError as WLEDConnectionError, RateLimitError
+
+_LOGGER = logging.getLogger(__name__)
+
+# API endpoints
+ENDPOINT_STATE = "/json/state"
+ENDPOINT_INFO = "/json/info"
+ENDPOINT_EFFECTS = "/json/eff"
+ENDPOINT_PALETTES = "/json/pal"
+ENDPOINT_JSON = "/json"
+
+# Buffer size limits for per-LED control
+MAX_BUFFER_ESP8266 = 10000
+MAX_BUFFER_ESP32 = 24000
+
+
+class WLEDJsonApiClient:
+    """Client for WLED JSON API with comprehensive control including per-LED operations.
+    
+    This client provides full access to the WLED JSON API, enabling:
+    - Per-LED color control
+    - Segment management
+    - Effect control
+    - State queries and updates
+    - Brightness and power control
+    
+    Properly handles buffer size limits and batching for large LED arrays.
+    """
+
+    def __init__(
+        self,
+        host: str,
+        port: int = 80,
+        session: aiohttp.ClientSession | None = None,
+        timeout: int = 10,
+    ) -> None:
+        """Initialize WLED JSON API client.
+
+        Args:
+            host: WLED device hostname or IP address
+            port: HTTP port (default 80)
+            session: Optional aiohttp session to reuse
+            timeout: Request timeout in seconds
+        """
+        self.host = host
+        self.port = port
+        self.base_url = f"http://{host}:{port}"
+        self._session = session
+        self._owned_session = session is None
+        self.timeout = aiohttp.ClientTimeout(total=timeout)
+        self._device_info: dict[str, Any] | None = None
+        
+        _LOGGER.debug("WLED JSON API client initialized for %s:%d", host, port)
+
+    async def _ensure_session(self) -> aiohttp.ClientSession:
+        """Ensure aiohttp session exists."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(timeout=self.timeout)
+            self._owned_session = True
+        return self._session
+
+    async def close(self) -> None:
+        """Close the client session."""
+        if self._owned_session and self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
+            _LOGGER.debug("WLED JSON API client session closed for %s", self.host)
+
+    async def _request(
+        self,
+        method: str,
+        endpoint: str,
+        json_data: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Make HTTP request to WLED device.
+
+        Args:
+            method: HTTP method (GET, POST)
+            endpoint: API endpoint path
+            json_data: Optional JSON payload
+            **kwargs: Additional aiohttp request parameters
+
+        Returns:
+            JSON response as dict
+
+        Raises:
+            WLEDConnectionError: If request fails
+        """
+        session = await self._ensure_session()
+        url = f"{self.base_url}{endpoint}"
+
+        try:
+            async with session.request(
+                method,
+                url,
+                json=json_data,
+                **kwargs,
+            ) as response:
+                response.raise_for_status()
+                
+                if response.content_type == "application/json":
+                    data = await response.json()
+                    _LOGGER.debug("WLED API response from %s: %s", endpoint, data)
+                    return data
+                else:
+                    # Some endpoints may return empty response
+                    _LOGGER.debug("WLED API non-JSON response from %s", endpoint)
+                    return {}
+
+        except aiohttp.ClientError as err:
+            _LOGGER.error("WLED API request failed for %s%s: %s", self.base_url, endpoint, err)
+            raise WLEDConnectionError(
+                f"WLED API request failed: {err}"
+            ) from err
+        except asyncio.TimeoutError as err:
+            _LOGGER.error("WLED API request timeout for %s%s", self.base_url, endpoint)
+            raise WLEDConnectionError(
+                f"WLED API request timeout for {self.base_url}{endpoint}"
+            ) from err
+
+    # ========== State Management ==========
+
+    async def get_state(self) -> dict[str, Any]:
+        """Get current device state.
+
+        Returns:
+            State object with all current values
+        """
+        return await self._request("GET", ENDPOINT_STATE)
+
+    async def get_info(self) -> dict[str, Any]:
+        """Get device information.
+
+        Returns:
+            Info object with device details
+        """
+        if self._device_info is None:
+            self._device_info = await self._request("GET", ENDPOINT_INFO)
+        return self._device_info
+
+    async def get_effects(self) -> list[str]:
+        """Get list of available effects.
+
+        Returns:
+            List of effect names
+        """
+        data = await self._request("GET", ENDPOINT_EFFECTS)
+        return data if isinstance(data, list) else []
+
+    async def get_palettes(self) -> list[str]:
+        """Get list of available palettes.
+
+        Returns:
+            List of palette names
+        """
+        data = await self._request("GET", ENDPOINT_PALETTES)
+        return data if isinstance(data, list) else []
+
+    async def set_state(self, state: dict[str, Any], return_state: bool = False) -> dict[str, Any] | None:
+        """Update device state.
+
+        Args:
+            state: State object with values to update
+            return_state: If True, returns full state after update
+
+        Returns:
+            Full state object if return_state=True, else None
+        """
+        if return_state:
+            state["v"] = True
+        
+        return await self._request("POST", ENDPOINT_STATE, json_data=state)
+
+    # ========== Power & Brightness ==========
+
+    async def turn_on(self, brightness: int | None = None) -> None:
+        """Turn on the light.
+
+        Args:
+            brightness: Optional brightness to set (0-255)
+        """
+        state: dict[str, Any] = {"on": True}
+        if brightness is not None:
+            state["bri"] = max(0, min(255, brightness))
+        
+        await self.set_state(state)
+        _LOGGER.debug("Turned on WLED at %s", self.host)
+
+    async def turn_off(self) -> None:
+        """Turn off the light."""
+        await self.set_state({"on": False})
+        _LOGGER.debug("Turned off WLED at %s", self.host)
+
+    async def set_brightness(self, brightness: int) -> None:
+        """Set brightness.
+
+        Args:
+            brightness: Brightness level (0-255)
+        """
+        brightness = max(0, min(255, brightness))
+        await self.set_state({"bri": brightness})
+        _LOGGER.debug("Set brightness to %d at %s", brightness, self.host)
+
+    async def toggle(self) -> bool:
+        """Toggle on/off state.
+
+        Returns:
+            New state (True = on, False = off)
+        """
+        result = await self.set_state({"on": "t", "v": True})
+        return result.get("on", False) if result else False
+
+    # ========== Segment Control ==========
+
+    async def update_segment(
+        self,
+        segment_id: int,
+        **kwargs: Any,
+    ) -> None:
+        """Update segment properties.
+
+        Args:
+            segment_id: Segment ID (0-based)
+            **kwargs: Segment properties to update (col, fx, sx, ix, pal, etc.)
+        """
+        segment_data = {"id": segment_id, **kwargs}
+        await self.set_state({"seg": [segment_data]})
+        _LOGGER.debug("Updated segment %d at %s: %s", segment_id, self.host, kwargs)
+
+    async def set_segment_color(
+        self,
+        segment_id: int,
+        primary: tuple[int, int, int] | None = None,
+        secondary: tuple[int, int, int] | None = None,
+        tertiary: tuple[int, int, int] | None = None,
+    ) -> None:
+        """Set segment colors.
+
+        Args:
+            segment_id: Segment ID
+            primary: Primary RGB color
+            secondary: Secondary RGB color
+            tertiary: Tertiary RGB color
+        """
+        colors: list[list[int]] = []
+        
+        if primary is not None:
+            colors.append(list(primary))
+        if secondary is not None:
+            colors.append(list(secondary))
+        if tertiary is not None:
+            colors.append(list(tertiary))
+        
+        if colors:
+            await self.update_segment(segment_id, col=colors)
+
+    async def set_segment_effect(
+        self,
+        segment_id: int,
+        effect_id: int,
+        speed: int | None = None,
+        intensity: int | None = None,
+        palette_id: int | None = None,
+    ) -> None:
+        """Set segment effect and parameters.
+
+        Args:
+            segment_id: Segment ID
+            effect_id: Effect ID
+            speed: Effect speed (0-255)
+            intensity: Effect intensity (0-255)
+            palette_id: Palette ID
+        """
+        params: dict[str, Any] = {"fx": effect_id}
+        
+        if speed is not None:
+            params["sx"] = max(0, min(255, speed))
+        if intensity is not None:
+            params["ix"] = max(0, min(255, intensity))
+        if palette_id is not None:
+            params["pal"] = palette_id
+        
+        await self.update_segment(segment_id, **params)
+
+    # ========== Per-LED Control ==========
+
+    def _color_to_hex(self, color: tuple[int, int, int]) -> str:
+        """Convert RGB tuple to hex string.
+
+        Args:
+            color: RGB tuple (0-255 each)
+
+        Returns:
+            Hex string like "FF00AA"
+        """
+        return f"{color[0]:02X}{color[1]:02X}{color[2]:02X}"
+
+    def _estimate_buffer_size(self, led_data: list[Any]) -> int:
+        """Estimate JSON buffer size for LED data.
+
+        Args:
+            led_data: LED data array
+
+        Returns:
+            Estimated buffer size in bytes
+        """
+        # Rough estimation: JSON overhead + data
+        # Each hex color is ~8 chars, each index is ~2-4 chars
+        import json
+        test_payload = {"seg": {"i": led_data[:min(10, len(led_data))]}}
+        sample_size = len(json.dumps(test_payload))
+        # Extrapolate for full array
+        estimated = int((sample_size / min(10, len(led_data))) * len(led_data) * 1.2)
+        return estimated
+
+    async def set_individual_leds(
+        self,
+        segment_id: int,
+        colors: list[tuple[int, int, int]],
+        start_index: int = 0,
+    ) -> None:
+        """Set individual LED colors in a segment.
+
+        This method handles batching automatically if the payload is too large.
+        LEDs are set starting from start_index in the segment.
+
+        Args:
+            segment_id: Segment ID
+            colors: List of RGB tuples
+            start_index: Starting LED index in segment (default 0)
+        """
+        if not colors:
+            return
+
+        # Convert colors to hex strings (more efficient than RGB arrays)
+        hex_colors = [self._color_to_hex(c) for c in colors]
+        
+        # Build LED data array with start index
+        led_data: list[str | int] = []
+        if start_index > 0:
+            led_data.extend([start_index])
+        led_data.extend(hex_colors)
+        
+        # Check buffer size and batch if necessary
+        estimated_size = self._estimate_buffer_size(led_data)
+        max_buffer = MAX_BUFFER_ESP32  # Use ESP32 limit as safe default
+        
+        if estimated_size > max_buffer:
+            # Need to batch
+            _LOGGER.debug(
+                "Batching LED data: estimated %d bytes > %d limit",
+                estimated_size,
+                max_buffer,
+            )
+            await self._set_leds_batched(segment_id, hex_colors, start_index)
+        else:
+            # Single call
+            await self.update_segment(segment_id, i=led_data)
+            _LOGGER.debug(
+                "Set %d LEDs on segment %d at %s (single call)",
+                len(colors),
+                segment_id,
+                self.host,
+            )
+
+    async def _set_leds_batched(
+        self,
+        segment_id: int,
+        hex_colors: list[str],
+        start_index: int = 0,
+    ) -> None:
+        """Set LEDs in batches to respect buffer limits.
+
+        Args:
+            segment_id: Segment ID
+            hex_colors: List of hex color strings
+            start_index: Starting LED index
+        """
+        # Batch size: ~256 LEDs at a time (safe for most devices)
+        batch_size = 256
+        total_leds = len(hex_colors)
+        
+        for i in range(0, total_leds, batch_size):
+            batch = hex_colors[i:i + batch_size]
+            batch_start = start_index + i
+            
+            # Build LED data for this batch
+            led_data: list[str | int] = [batch_start]
+            led_data.extend(batch)
+            
+            await self.update_segment(segment_id, i=led_data)
+            _LOGGER.debug(
+                "Set LEDs %d-%d on segment %d (batch %d/%d)",
+                batch_start,
+                batch_start + len(batch) - 1,
+                segment_id,
+                i // batch_size + 1,
+                (total_leds + batch_size - 1) // batch_size,
+            )
+            
+            # Small delay between batches to avoid overwhelming device
+            if i + batch_size < total_leds:
+                await asyncio.sleep(0.05)
+
+    async def set_led(
+        self,
+        segment_id: int,
+        led_index: int,
+        color: tuple[int, int, int],
+    ) -> None:
+        """Set a single LED color.
+
+        Args:
+            segment_id: Segment ID
+            led_index: LED index within segment (0-based)
+            color: RGB color tuple
+        """
+        hex_color = self._color_to_hex(color)
+        led_data = [led_index, hex_color]
+        
+        await self.update_segment(segment_id, i=led_data)
+        _LOGGER.debug(
+            "Set LED %d to %s on segment %d at %s",
+            led_index,
+            hex_color,
+            segment_id,
+            self.host,
+        )
+
+    async def set_led_range(
+        self,
+        segment_id: int,
+        start: int,
+        stop: int,
+        color: tuple[int, int, int],
+    ) -> None:
+        """Set a range of LEDs to the same color.
+
+        Args:
+            segment_id: Segment ID
+            start: Start LED index (inclusive)
+            stop: Stop LED index (inclusive)
+            color: RGB color tuple
+        """
+        hex_color = self._color_to_hex(color)
+        led_data = [start, stop, hex_color]
+        
+        await self.update_segment(segment_id, i=led_data)
+        _LOGGER.debug(
+            "Set LED range %d-%d to %s on segment %d at %s",
+            start,
+            stop,
+            hex_color,
+            segment_id,
+            self.host,
+        )
+
+    async def clear_individual_leds(self, segment_id: int) -> None:
+        """Clear individual LED control and unfreeze segment.
+
+        This allows the segment to return to effect mode.
+
+        Args:
+            segment_id: Segment ID
+        """
+        await self.update_segment(segment_id, frz=False)
+        _LOGGER.debug("Cleared individual LED control on segment %d at %s", segment_id, self.host)
+
+    async def freeze_segment(self, segment_id: int, freeze: bool = True) -> None:
+        """Freeze or unfreeze a segment.
+
+        Args:
+            segment_id: Segment ID
+            freeze: True to freeze, False to unfreeze
+        """
+        await self.update_segment(segment_id, frz=freeze)
+        _LOGGER.debug(
+            "%s segment %d at %s",
+            "Froze" if freeze else "Unfroze",
+            segment_id,
+            self.host,
+        )
+
+    # ========== Utility Methods ==========
+
+    async def get_max_buffer_size(self) -> int:
+        """Get maximum buffer size based on device architecture.
+
+        Returns:
+            Maximum buffer size in bytes
+        """
+        try:
+            info = await self.get_info()
+            arch = info.get("arch", "").lower()
+            
+            if "esp32" in arch:
+                return MAX_BUFFER_ESP32
+            else:
+                return MAX_BUFFER_ESP8266
+        except Exception as err:
+            _LOGGER.warning("Could not determine device architecture: %s", err)
+            return MAX_BUFFER_ESP8266  # Conservative default
+
+    async def __aenter__(self) -> WLEDJsonApiClient:
+        """Async context manager entry."""
+        await self._ensure_session()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        """Async context manager exit."""
+        await self.close()

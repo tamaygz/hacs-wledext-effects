@@ -21,6 +21,8 @@ class RainbowWaveEffect(WLEDEffectBase):
     
     This effect generates a smooth rainbow gradient that moves across the LED strip.
     The wave speed determines how fast the colors shift and move.
+    
+    Uses per-LED control for true rainbow gradients.
     """
 
     def __init__(
@@ -28,6 +30,7 @@ class RainbowWaveEffect(WLEDEffectBase):
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client=None,
     ) -> None:
         """Initialize rainbow wave effect.
 
@@ -35,8 +38,9 @@ class RainbowWaveEffect(WLEDEffectBase):
             hass: Home Assistant instance
             wled_client: WLED client instance
             config: Effect configuration
+            json_client: Optional JSON API client for per-LED control
         """
-        super().__init__(hass, wled_client, config)
+        super().__init__(hass, wled_client, config, json_client)
         
         # Effect-specific configuration
         self.wave_speed: float = config.get("wave_speed", 1.0)
