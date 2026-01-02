@@ -337,11 +337,16 @@ class WLEDEffectBase:
             self._success_count += 1
             return True
 
-        except Exception as err:
-            _LOGGER.error("Per-LED control failed: %s", err)
+        except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Per-LED control connection error: %s", err)
             self._last_error = str(err)
             self._failure_count += 1
-            raise EffectExecutionError(f"Per-LED control failed: {err}") from err
+            raise EffectExecutionError(f"Per-LED control connection error: {err}") from err
+        except (ValueError, TypeError, AttributeError) as err:
+            _LOGGER.error("Per-LED control data error: %s", err)
+            self._last_error = str(err)
+            self._failure_count += 1
+            raise EffectExecutionError(f"Per-LED control data error: {err}") from err
 
     async def set_led(
         self,
@@ -375,11 +380,16 @@ class WLEDEffectBase:
             self._success_count += 1
             return True
 
-        except Exception as err:
-            _LOGGER.error("Set LED failed: %s", err)
+        except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Set LED connection error: %s", err)
             self._last_error = str(err)
             self._failure_count += 1
-            raise EffectExecutionError(f"Set LED failed: {err}") from err
+            raise EffectExecutionError(f"Set LED connection error: {err}") from err
+        except (ValueError, TypeError) as err:
+            _LOGGER.error("Set LED data error: %s", err)
+            self._last_error = str(err)
+            self._failure_count += 1
+            raise EffectExecutionError(f"Set LED data error: {err}") from err
 
     async def set_led_range(
         self,
@@ -416,11 +426,16 @@ class WLEDEffectBase:
             self._success_count += 1
             return True
 
-        except Exception as err:
-            _LOGGER.error("Set LED range failed: %s", err)
+        except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Set LED range connection error: %s", err)
             self._last_error = str(err)
             self._failure_count += 1
-            raise EffectExecutionError(f"Set LED range failed: {err}") from err
+            raise EffectExecutionError(f"Set LED range connection error: {err}") from err
+        except (ValueError, TypeError) as err:
+            _LOGGER.error("Set LED range data error: %s", err)
+            self._last_error = str(err)
+            self._failure_count += 1
+            raise EffectExecutionError(f"Set LED range data error: {err}") from err
 
     async def clear_individual_leds(self) -> bool:
         """Clear individual LED control and return segment to effect mode.
