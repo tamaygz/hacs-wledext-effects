@@ -391,7 +391,7 @@ class WLEDEffectsOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -419,7 +419,7 @@ class WLEDEffectsOptionsFlow(config_entries.OptionsFlow):
             
             if not errors:
                 # Extract effect-specific config separately
-                effect_type = self.config_entry.data.get(CONF_EFFECT_TYPE, "")
+                effect_type = self._config_entry.data.get(CONF_EFFECT_TYPE, "")
                 effect_config = {}
                 common_fields = {
                     CONF_EFFECT_NAME, CONF_SEGMENT_ID, CONF_BRIGHTNESS,
@@ -454,8 +454,8 @@ class WLEDEffectsOptionsFlow(config_entries.OptionsFlow):
                 return self.async_create_entry(title="", data=options_data)
 
         # Get current options
-        options = self.config_entry.options
-        effect_type = self.config_entry.data.get(CONF_EFFECT_TYPE, "")
+        options = self._config_entry.options
+        effect_type = self._config_entry.data.get(CONF_EFFECT_TYPE, "")
 
         # Build schema with current values
         schema_dict = {
