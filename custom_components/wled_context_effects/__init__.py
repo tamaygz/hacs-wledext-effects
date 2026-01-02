@@ -61,6 +61,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         wled_host = entry.data[CONF_WLED_HOST]
         wled_client = await connection_manager.get_client(wled_host)
 
+        # Get JSON API client for per-LED control
+        json_client = await connection_manager.get_json_client(wled_host)
+
         # Get effect class
         effect_type = entry.data[CONF_EFFECT_TYPE]
         effect_class = EFFECT_REGISTRY.get_effect_class(effect_type)
@@ -71,8 +74,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             **entry.options,
         }
 
-        # Instantiate effect
-        effect: WLEDEffectBase = effect_class(hass, wled_client, effect_config)
+        # Instantiate effect with both clients
+        effect: WLEDEffectBase = effect_class(hass, wled_client, effect_config, json_client)
 
         # Setup effect
         if not await effect.setup():
@@ -89,6 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "coordinator": coordinator,
             "effect": effect,
             "wled_client": wled_client,
+            "json_client": json_client,
             "wled_host": wled_host,
         }
 
@@ -141,6 +145,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await effect.stop()
             except Exception as err:
                 _LOGGER.error("Error stopping effect during unload: %s", err)
+
+        # Close JSON client
+        json_client = entry_data.get("json_client")
+        if json_client:
+            try:
+                await json_client.close()
+            except Exception as err:
+                _LOGGER.error("Error closing JSON client during unload: %s", err)
 
         # Clean up if this was the last entry (only connection_manager remains)
         if len(hass.data[DOMAIN]) == 1 and "connection_manager" in hass.data[DOMAIN]:

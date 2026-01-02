@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Any
 
 from ..coordinator import StateSourceCoordinator
@@ -12,6 +13,8 @@ if TYPE_CHECKING:
     from wled import WLED
 
     from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @register_effect
@@ -47,8 +50,7 @@ class SegmentFadeEffect(WLEDEffectBase):
             config: Effect configuration
             json_client: Optional WLEDJsonAPI client for per-LED control
         """
-        super().__init__(hass, wled_client, config)
-        self.json_client = json_client
+        super().__init__(hass, wled_client, config, json_client)
         
         # Effect-specific configuration
         self.color1: tuple[int, int, int] = self._parse_color(
@@ -187,22 +189,17 @@ class SegmentFadeEffect(WLEDEffectBase):
         # Try per-LED control first
         if self.json_client and led_colors:
             try:
-                success = await self.set_individual_leds(
-                    led_colors,
-                    brightness=self.brightness,
-                    json_client=self.json_client,
-                )
-                if success:
-                    # Control fade speed
-                    speed_multiplier = 1.0
-                    if state_value is not None and self.state_controls == "speed":
-                        speed_multiplier = self.map_value(
-                            state_value, 0.0, 1.0, 0.1, 10.0, smooth=True
-                        )
-                    await asyncio.sleep((self.transition_speed / self.steps) / speed_multiplier)
-                    return
+                await self.set_individual_leds(led_colors)
+                # Control fade speed
+                speed_multiplier = 1.0
+                if state_value is not None and self.state_controls == "speed":
+                    speed_multiplier = self.map_value(
+                        state_value, 0.0, 1.0, 0.1, 10.0, smooth=True
+                    )
+                await asyncio.sleep((self.transition_speed / self.steps) / speed_multiplier)
+                return
             except Exception as e:
-                self.logger.warning(f"Per-LED control failed, falling back to segment mode: {e}")
+                _LOGGER.warning("Per-LED control failed, falling back to segment mode: %s", e)
         
         # Fallback to segment-level control
         current_color = self.interpolate_color(self.color1, self.color2, position)

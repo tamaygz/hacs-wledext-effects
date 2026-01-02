@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import math
 from typing import TYPE_CHECKING, Any
 
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
     from wled import WLED
 
     from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @register_effect
@@ -48,8 +51,7 @@ class BreatheEffect(WLEDEffectBase):
             config: Effect configuration
             json_client: Optional WLEDJsonAPI client for per-LED control
         """
-        super().__init__(hass, wled_client, config)
-        self.json_client = json_client
+        super().__init__(hass, wled_client, config, json_client)
         
         # Effect-specific configuration
         self.color: tuple[int, int, int] = self._parse_color(
@@ -187,19 +189,14 @@ class BreatheEffect(WLEDEffectBase):
         # Try per-LED control first
         if self.json_client and led_colors:
             try:
-                success = await self.set_individual_leds(
-                    led_colors,
-                    brightness=255,  # Individual LED colors already have brightness applied
-                    json_client=self.json_client,
-                )
-                if success:
-                    # Advance phase based on rate
-                    phase_increment = current_rate * 0.05
-                    self.phase = (self.phase + phase_increment) % 1.0
-                    await asyncio.sleep(0.05)
-                    return
+                await self.set_individual_leds(led_colors)
+                # Advance phase based on rate
+                phase_increment = current_rate * 0.05
+                self.phase = (self.phase + phase_increment) % 1.0
+                await asyncio.sleep(0.05)
+                return
             except Exception as e:
-                self.logger.warning(f"Per-LED control failed, falling back to segment mode: {e}")
+                _LOGGER.warning("Per-LED control failed, falling back to segment mode: %s", e)
         
         # Fallback to segment-level control
         current_brightness = int(
