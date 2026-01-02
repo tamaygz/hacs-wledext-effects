@@ -28,6 +28,13 @@
           "brightness": "Brightness",
           "auto_start": "Start on Home Assistant boot"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure WLED Device",
+        "description": "Update the WLED device connection. Current host: {current_host}",
+        "data": {
+          "wled_host": "WLED Host/IP Address"
+        }
       }
     },
     "error": {
@@ -36,17 +43,23 @@
       "already_configured": "This effect is already configured",
       "unknown": "Unknown error occurred",
       "invalid_segment": "Invalid segment ID",
-      "invalid_led_range": "Invalid LED range"
+      "invalid_led_range": "Start LED must be less than or equal to stop LED",
+      "device_not_found": "Could not find WLED device configuration",
+      "no_device_selected": "Please select a device or enter a host address",
+      "empty_name": "Effect name cannot be empty",
+      "negative_value": "Value must be 0 or greater",
+      "reconfigure_failed": "Failed to reconfigure integration"
     },
     "abort": {
-      "already_configured": "This effect configuration already exists"
+      "already_configured": "This effect configuration already exists",
+      "reconfigure_successful": "Successfully updated WLED device connection"
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Configure Effect",
-        "description": "Modify effect parameters",
+        "description": "Modify effect parameters. Changes will reload the integration.",
         "data": {
           "effect_name": "Effect Name",
           "segment_id": "Segment ID",
@@ -57,6 +70,11 @@
           "enabled": "Enabled"
         }
       }
+    },
+    "error": {
+      "invalid_led_range": "Start LED must be less than or equal to stop LED",
+      "empty_name": "Effect name cannot be empty",
+      "negative_value": "Value must be 0 or greater"
     }
   },
   "entity": {

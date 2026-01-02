@@ -49,6 +49,7 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._wled_host: str | None = None
         self._effect_type: str | None = None
         self._effect_config: dict[str, Any] = {}
+        self._reauth_entry: config_entries.ConfigEntry | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -59,14 +60,22 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # Check if manual host was provided
             if user_input.get(CONF_WLED_HOST):
-                self._wled_host = user_input[CONF_WLED_HOST]
+                self._wled_host = user_input[CONF_WLED_HOST].strip()
                 
-                # Test connection
-                connection_manager = WLEDConnectionManager(self.hass)
-                if not await connection_manager.test_connection(self._wled_host):
-                    errors["base"] = "cannot_connect"
+                # Validate host format
+                if not self._wled_host:
+                    errors[CONF_WLED_HOST] = "invalid_host"
                 else:
-                    return await self.async_step_effect_type()
+                    # Test connection
+                    connection_manager = WLEDConnectionManager(self.hass)
+                    try:
+                        if not await connection_manager.test_connection(self._wled_host):
+                            errors[CONF_WLED_HOST] = "cannot_connect"
+                        else:
+                            return await self.async_step_effect_type()
+                    except Exception as err:
+                        _LOGGER.exception("Error testing connection to %s", self._wled_host)
+                        errors[CONF_WLED_HOST] = "cannot_connect"
             
             # Or use selected device
             elif user_input.get(CONF_WLED_DEVICE_ID):
@@ -91,11 +100,11 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._wled_device_id,
                         [e.entry_id for e in wled_entries],
                     )
-                    errors["base"] = "cannot_connect"
+                    errors[CONF_WLED_DEVICE_ID] = "device_not_found"
                 else:
                     return await self.async_step_effect_type()
             else:
-                errors["base"] = "invalid_host"
+                errors["base"] = "no_device_selected"
 
         # Get available WLED devices
         wled_devices = await self._async_get_wled_devices()
@@ -154,11 +163,15 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             # Extract common fields
-            effect_name = user_input[CONF_EFFECT_NAME]
+            effect_name = user_input[CONF_EFFECT_NAME].strip()
             segment_id = user_input[CONF_SEGMENT_ID]
             brightness = user_input[CONF_BRIGHTNESS]
             auto_start = user_input.get(CONF_AUTO_START, DEFAULT_AUTO_START)
             auto_detect = user_input.get(CONF_AUTO_DETECT, True)
+
+            # Validate effect name
+            if not effect_name:
+                errors[CONF_EFFECT_NAME] = "empty_name"
 
             # Handle LED range
             if auto_detect:
@@ -170,7 +183,11 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 
                 if start_led is not None and stop_led is not None:
                     if start_led > stop_led:
-                        errors["base"] = "invalid_led_range"
+                        errors[CONF_START_LED] = "invalid_led_range"
+                    elif start_led < 0:
+                        errors[CONF_START_LED] = "negative_value"
+                    elif stop_led < 0:
+                        errors[CONF_STOP_LED] = "negative_value"
 
             if not errors:
                 # Get effect-specific config
@@ -179,9 +196,19 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 
                 # Extract effect-specific fields
                 effect_config = {}
+                common_fields = {
+                    CONF_EFFECT_NAME, CONF_SEGMENT_ID, CONF_BRIGHTNESS,
+                    CONF_START_LED, CONF_STOP_LED, CONF_AUTO_START,
+                    CONF_AUTO_DETECT, CONF_ENABLED
+                }
                 for key, value_schema in effect_schema.get("properties", {}).items():
-                    if key in user_input:
+                    if key in user_input and key not in common_fields:
                         effect_config[key] = user_input[key]
+
+                # Set unique ID based on device+segment to prevent duplicates
+                unique_id = f"{self._wled_host}_{segment_id}"
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
 
                 # Create config entry
                 data = {
@@ -300,6 +327,56 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         
         return devices
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle reconfiguration of the integration."""
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        if entry is None:
+            return self.async_abort(reason="reconfigure_failed")
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # Check if manual host was provided
+            if user_input.get(CONF_WLED_HOST):
+                new_host = user_input[CONF_WLED_HOST].strip()
+                
+                # Validate host format
+                if not new_host:
+                    errors[CONF_WLED_HOST] = "invalid_host"
+                else:
+                    # Test connection
+                    connection_manager = WLEDConnectionManager(self.hass)
+                    try:
+                        if not await connection_manager.test_connection(new_host):
+                            errors[CONF_WLED_HOST] = "cannot_connect"
+                        else:
+                            # Update the config entry
+                            return self.async_update_reload_and_abort(
+                                entry,
+                                data={**entry.data, CONF_WLED_HOST: new_host},
+                                reason="reconfigure_successful",
+                            )
+                    except Exception as err:
+                        _LOGGER.exception("Error testing connection during reconfigure")
+                        errors[CONF_WLED_HOST] = "cannot_connect"
+            else:
+                errors["base"] = "no_device_selected"
+
+        # Show form with current host
+        current_host = entry.data.get(CONF_WLED_HOST, "")
+        data_schema = vol.Schema({
+            vol.Required(CONF_WLED_HOST, default=current_host): str,
+        })
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=data_schema,
+            errors=errors,
+            description_placeholders={"current_host": current_host},
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(
@@ -323,16 +400,58 @@ class WLEDEffectsOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            # Validate effect name
+            effect_name = user_input.get(CONF_EFFECT_NAME, "").strip()
+            if not effect_name:
+                errors[CONF_EFFECT_NAME] = "empty_name"
+
             # Validate LED range if provided
             start_led = user_input.get(CONF_START_LED)
             stop_led = user_input.get(CONF_STOP_LED)
             
             if start_led is not None and stop_led is not None:
                 if start_led > stop_led:
-                    errors["base"] = "invalid_led_range"
+                    errors[CONF_START_LED] = "invalid_led_range"
+                elif start_led < 0:
+                    errors[CONF_START_LED] = "negative_value"
+                elif stop_led < 0:
+                    errors[CONF_STOP_LED] = "negative_value"
             
             if not errors:
-                return self.async_create_entry(title="", data=user_input)
+                # Extract effect-specific config separately
+                effect_type = self.config_entry.data.get(CONF_EFFECT_TYPE, "")
+                effect_config = {}
+                common_fields = {
+                    CONF_EFFECT_NAME, CONF_SEGMENT_ID, CONF_BRIGHTNESS,
+                    CONF_START_LED, CONF_STOP_LED, CONF_AUTO_START, CONF_ENABLED
+                }
+                
+                try:
+                    effect_class = EFFECT_REGISTRY.get_effect_class(effect_type)
+                    effect_schema = effect_class.config_schema()
+                    
+                    for key, value_schema in effect_schema.get("properties", {}).items():
+                        if key in user_input and key not in common_fields:
+                            effect_config[key] = user_input[key]
+                except Exception as err:
+                    _LOGGER.error("Error extracting effect config: %s", err)
+
+                # Build options dict with effect config nested
+                options_data = {
+                    CONF_EFFECT_NAME: effect_name,
+                    CONF_SEGMENT_ID: user_input[CONF_SEGMENT_ID],
+                    CONF_BRIGHTNESS: user_input[CONF_BRIGHTNESS],
+                    CONF_AUTO_START: user_input.get(CONF_AUTO_START, DEFAULT_AUTO_START),
+                    CONF_ENABLED: user_input.get(CONF_ENABLED, DEFAULT_ENABLED),
+                    CONF_EFFECT_CONFIG: effect_config,
+                }
+                
+                if start_led is not None:
+                    options_data[CONF_START_LED] = start_led
+                if stop_led is not None:
+                    options_data[CONF_STOP_LED] = stop_led
+
+                return self.async_create_entry(title="", data=options_data)
 
         # Get current options
         options = self.config_entry.options
