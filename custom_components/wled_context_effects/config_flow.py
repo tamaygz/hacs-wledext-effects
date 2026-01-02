@@ -72,25 +72,26 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             elif user_input.get(CONF_WLED_DEVICE_ID):
                 self._wled_device_id = user_input[CONF_WLED_DEVICE_ID]
                 
-                # Get host from device
+                # Get host from WLED config entries
+                wled_entries = self.hass.config_entries.async_entries(WLED_DOMAIN)
                 device_registry = dr.async_get(self.hass)
-                device = device_registry.async_get(self._wled_device_id)
                 
-                if device and device.connections:
-                    # Extract host from connections
-                    for conn_type, conn_id in device.connections:
-                        if conn_type == "mac":
-                            # Need to get host from WLED entry
-                            wled_entries = self.hass.config_entries.async_entries(
-                                WLED_DOMAIN
-                            )
-                            for entry in wled_entries:
-                                if entry.unique_id == conn_id.lower():
-                                    self._wled_host = entry.data.get("host")
-                                    break
+                for entry in wled_entries:
+                    # Check if this entry's device matches our selected device
+                    device = device_registry.async_get_device(
+                        identifiers={(WLED_DOMAIN, entry.unique_id)}
+                    )
+                    if device and device.id == self._wled_device_id:
+                        self._wled_host = entry.data.get("host")
+                        break
                 
                 if not self._wled_host:
-                    errors["base"] = "invalid_host"
+                    _LOGGER.error(
+                        "Could not find host for device %s. Available WLED entries: %s",
+                        self._wled_device_id,
+                        [e.entry_id for e in wled_entries],
+                    )
+                    errors["base"] = "cannot_connect"
                 else:
                     return await self.async_step_effect_type()
             else:
