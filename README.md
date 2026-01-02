@@ -1,4 +1,4 @@
-# WLED Effects - Advanced Effects for Home Assistant
+# WLED Context Effects - Advanced Effects for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![GitHub Release](https://img.shields.io/github/release/tamaygz/hacs-wledext-effects.svg)](https://github.com/tamaygz/hacs-wledext-effects/releases)
