@@ -454,10 +454,14 @@ class WLEDEffectBase:
             await self.json_client.clear_individual_leds(self.segment_id)
             return True
 
-        except Exception as err:
-            _LOGGER.error("Clear individual LEDs failed: %s", err)
+        except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Clear individual LEDs connection error: %s", err)
             self._last_error = str(err)
-            raise EffectExecutionError(f"Clear individual LEDs failed: {err}") from err
+            raise EffectExecutionError(f"Clear individual LEDs connection error: {err}") from err
+        except (ValueError, TypeError) as err:
+            _LOGGER.error("Clear individual LEDs data error: %s", err)
+            self._last_error = str(err)
+            raise EffectExecutionError(f"Clear individual LEDs data error: {err}") from err
 
     async def _auto_detect_range(self) -> None:
         """Auto-detect LED range from device."""
