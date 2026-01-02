@@ -142,13 +142,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception as err:
                 _LOGGER.error("Error stopping effect during unload: %s", err)
 
-        # Clean up if this was the last entry
-        if not hass.data[DOMAIN]:
-            connection_manager: WLEDConnectionManager = hass.data[DOMAIN].get(
+        # Clean up if this was the last entry (only connection_manager remains)
+        if len(hass.data[DOMAIN]) == 1 and "connection_manager" in hass.data[DOMAIN]:
+            connection_manager: WLEDConnectionManager = hass.data[DOMAIN].pop(
                 "connection_manager"
             )
             if connection_manager:
                 await connection_manager.close_all()
+            # Clean up domain data if empty
+            if not hass.data[DOMAIN]:
+                hass.data.pop(DOMAIN)
 
         _LOGGER.info("Successfully unloaded WLED Effects entry: %s", entry.title)
 

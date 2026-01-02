@@ -146,6 +146,17 @@ class EffectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """
         _LOGGER.info("Updating effect configuration: %s", config)
         
+        # Validate numeric values
+        if "brightness" in config:
+            brightness = config["brightness"]
+            if not isinstance(brightness, int) or not 0 <= brightness <= 255:
+                raise ValueError(f"Invalid brightness value: {brightness}")
+        
+        if "segment_id" in config:
+            segment_id = config["segment_id"]
+            if not isinstance(segment_id, int) or not 0 <= segment_id <= 31:
+                raise ValueError(f"Invalid segment_id: {segment_id}")
+        
         # Update config dict
         self.effect.config.update(config)
         

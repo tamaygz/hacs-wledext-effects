@@ -1,6 +1,7 @@
 """WLED connection management."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -51,12 +52,20 @@ class WLEDConnectionManager:
             _LOGGER.info("Creating new WLED client for %s", host)
             client = WLED(host)
 
-            # Test connection
-            await client.update()
+            # Test connection with timeout
+            try:
+                await asyncio.wait_for(client.update(), timeout=10.0)
+            except asyncio.TimeoutError:
+                await client.close()
+                raise WLEDConnectionError(
+                    f"Connection timeout for WLED device at {host}"
+                )
 
             self._clients[host] = client
             return client
 
+        except WLEDConnectionError:
+            raise
         except Exception as err:
             _LOGGER.error("Failed to connect to WLED device at %s: %s", host, err)
             raise WLEDConnectionError(

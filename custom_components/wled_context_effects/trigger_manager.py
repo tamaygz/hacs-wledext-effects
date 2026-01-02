@@ -105,9 +105,12 @@ class TriggerManager:
             await self._fire_trigger(trigger_id, {"value": value, "state": new_state})
 
         # Subscribe to state changes
+        from homeassistant.helpers.event import async_track_state_change_event
+        
         self._listeners.append(
-            self.hass.bus.async_listen(
-                f"state_changed_{config.entity_id}",
+            async_track_state_change_event(
+                self.hass,
+                config.entity_id,
                 state_changed,
             )
         )
@@ -165,9 +168,12 @@ class TriggerManager:
 
             last_triggered = triggered
 
+        from homeassistant.helpers.event import async_track_state_change_event
+        
         self._listeners.append(
-            self.hass.bus.async_listen(
-                f"state_changed_{config.entity_id}",
+            async_track_state_change_event(
+                self.hass,
+                config.entity_id,
                 state_changed,
             )
         )
@@ -201,8 +207,9 @@ class TriggerManager:
                     # Check every 30 seconds
                     await asyncio.sleep(30)
 
-        if not self._time_task or self._time_task.done():
-            self._time_task = self.hass.async_create_task(check_time())
+        # Create a new task for this time trigger (don't reuse _time_task)
+        task = self.hass.async_create_task(check_time())
+        self._listeners.append(lambda: task.cancel() if not task.done() else None)
 
     async def _setup_event_trigger(
         self,

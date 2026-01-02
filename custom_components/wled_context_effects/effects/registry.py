@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Type
 
-from .errors import EffectNotFoundError
+from ..errors import EffectNotFoundError
 
 if TYPE_CHECKING:
     from .base import WLEDEffectBase

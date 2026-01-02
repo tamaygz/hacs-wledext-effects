@@ -114,8 +114,8 @@ class WLEDEffectBase:
         # Reactive inputs - list of entity IDs to monitor
         self.reactive_inputs: list[str] = config.get("reactive_inputs", [])
         
-        # Data mapping and smoothing
-        self.data_mapper: DataMapper | None = None
+        # Data mapping and smoothing (initialize eagerly for consistency)
+        self.data_mapper = DataMapper()
         self.value_smoother: ValueSmoother | None = None
         if self.transition_mode == TRANSITION_MODE_SMOOTH:
             self.value_smoother = ValueSmoother(alpha=0.3)
@@ -127,10 +127,6 @@ class WLEDEffectBase:
         
         # Multi-input blending
         self.input_blender = MultiInputBlender()
-        
-        # Manual override detection
-        self._manual_override_active = False
-        self._last_manual_check: datetime | None = None
 
         _LOGGER.debug(
             "Initialized effect %s with config: %s (reverse=%s, zones=%d, reactive_inputs=%d)",
@@ -385,14 +381,11 @@ class WLEDEffectBase:
         Returns:
             Mapped output value
         """
-        if self.data_mapper is None:
-            self.data_mapper = DataMapper(input_min, input_max, output_min, output_max)
-        else:
-            # Update ranges
-            self.data_mapper.input_min = input_min
-            self.data_mapper.input_max = input_max
-            self.data_mapper.output_min = output_min
-            self.data_mapper.output_max = output_max
+        # Update mapper ranges
+        self.data_mapper.input_min = input_min
+        self.data_mapper.input_max = input_max
+        self.data_mapper.output_min = output_min
+        self.data_mapper.output_max = output_max
 
         mapped = self.data_mapper.map(value)
 
@@ -438,16 +431,18 @@ class WLEDEffectBase:
         """Check if manual override is active.
         
         If freeze_on_manual is enabled, checks if WLED device was manually controlled.
+        Note: Manual override detection is not yet fully implemented.
 
         Returns:
-            True if manual override detected and freeze_on_manual is enabled
+            Always returns False for now
         """
         if not self.freeze_on_manual:
             return False
 
-        # TODO: Implement actual manual override detection
-        # This would require tracking last commanded state and comparing with device state
-        return self._manual_override_active
+        # Manual override detection requires tracking device state changes
+        # and comparing with commanded state - to be implemented
+        _LOGGER.debug("Manual override detection not yet implemented")
+        return False
 
     def on_trigger(self, trigger_data: dict[str, Any]) -> None:
         """Callback for trigger events.
