@@ -242,7 +242,7 @@ WLEDEffectRunOnceButton(ButtonEntity):
 #### Core Services
 
 ```yaml
-wled_effects.start_effect:
+wled_context_effects.start_effect:
   description: Start a configured effect
   fields:
     entity_id:
@@ -250,10 +250,10 @@ wled_effects.start_effect:
       required: true
       selector:
         entity:
-          integration: wled_effects
+          integration: wled_context_effects
           domain: switch
 
-wled_effects.stop_effect:
+wled_context_effects.stop_effect:
   description: Stop a running effect
   fields:
     entity_id:
@@ -261,10 +261,10 @@ wled_effects.stop_effect:
       required: true
       selector:
         entity:
-          integration: wled_effects
+          integration: wled_context_effects
           domain: switch
 
-wled_effects.run_once:
+wled_context_effects.run_once:
   description: Run effect once (single iteration)
   fields:
     entity_id:
@@ -272,10 +272,10 @@ wled_effects.run_once:
       required: true
       selector:
         entity:
-          integration: wled_effects
+          integration: wled_context_effects
           domain: switch
 
-wled_effects.set_config:
+wled_context_effects.set_config:
   description: Update effect configuration dynamically
   fields:
     entity_id:
@@ -283,7 +283,7 @@ wled_effects.set_config:
       required: true
       selector:
         entity:
-          integration: wled_effects
+          integration: wled_context_effects
           domain: switch
     config:
       description: Configuration dictionary
@@ -292,7 +292,7 @@ wled_effects.set_config:
       selector:
         object:
 
-wled_effects.reload:
+wled_context_effects.reload:
   description: Reload effect modules (development)
   fields: {}
 ```
@@ -303,21 +303,21 @@ wled_effects.reload:
 
 ```python
 # Effect started
-wled_effects_started:
+wled_context_effects_started:
   event_data:
     entity_id: str
     effect_type: str
     segment_id: int
 
 # Effect stopped  
-wled_effects_stopped:
+wled_context_effects_stopped:
   event_data:
     entity_id: str
     effect_type: str
     duration: float  # seconds running
 
 # Effect error
-wled_effects_error:
+wled_context_effects_error:
   event_data:
     entity_id: str
     effect_type: str
@@ -325,7 +325,7 @@ wled_effects_error:
     recoverable: bool
 
 # Configuration changed
-wled_effects_config_changed:
+wled_context_effects_config_changed:
   event_data:
     entity_id: str
     old_config: dict
@@ -337,7 +337,7 @@ wled_effects_config_changed:
 automation:
   - trigger:
       - platform: event
-        event_type: wled_effects_error
+        event_type: wled_context_effects_error
         event_data:
           entity_id: switch.rainbow_wave_effect
     action:
@@ -723,7 +723,7 @@ class WLEDConnectionManager:
 {
     "entry_id": "unique_id_here",
     "version": 1,
-    "domain": "wled_effects",
+    "domain": "wled_context_effects",
     "title": "Rainbow Wave on Living Room WLED",
     "data": {
         "wled_device_id": "aabbccddeeff",  # Link to WLED integration
@@ -1119,7 +1119,7 @@ The modular architecture ensures easy addition of new effects, while the robust 
 ## Appendix A: File Structure
 
 ```
-custom_components/wled_effects/
+custom_components/wled_context_effects/
 ├── __init__.py              # Integration setup
 ├── manifest.json            # Integration metadata
 ├── config_flow.py          # Configuration UI

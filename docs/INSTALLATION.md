@@ -69,19 +69,19 @@ https://github.com/tamaygz/hacs-wledext-effects/releases/latest
 #### Step 2: Extract Files
 
 1. Extract the downloaded ZIP file
-2. Copy the `custom_components/wled_effects` folder
+2. Copy the `custom_components/wled_context_effects` folder
 
 #### Step 3: Install to Home Assistant
 
 1. Navigate to your Home Assistant configuration directory (where `configuration.yaml` is located)
 2. If a `custom_components` folder doesn't exist, create it
-3. Paste the `wled_effects` folder inside `custom_components`:
+3. Paste the `wled_context_effects` folder inside `custom_components`:
 
 ```
 <config_directory>/
 ├── configuration.yaml
 └── custom_components/
-    └── wled_effects/
+    └── wled_context_effects/
         ├── __init__.py
         ├── manifest.json
         ├── ...
@@ -111,23 +111,23 @@ After installation, verify everything is working:
 
 Each effect creates multiple entities:
 
-- `switch.wled_effects_<effect_name>` - Effect on/off
-- `number.wled_effects_<effect_name>_brightness` - Brightness control
-- `number.wled_effects_<effect_name>_speed` - Speed control
-- `select.wled_effects_<effect_name>_mode` - Effect mode
-- `sensor.wled_effects_<effect_name>_status` - Effect status
-- `sensor.wled_effects_<effect_name>_stats` - Performance metrics
-- `button.wled_effects_<effect_name>_restart` - Restart effect
+- `switch.wled_context_effects_<effect_name>` - Effect on/off
+- `number.wled_context_effects_<effect_name>_brightness` - Brightness control
+- `number.wled_context_effects_<effect_name>_speed` - Speed control
+- `select.wled_context_effects_<effect_name>_mode` - Effect mode
+- `sensor.wled_context_effects_<effect_name>_status` - Effect status
+- `sensor.wled_context_effects_<effect_name>_stats` - Performance metrics
+- `button.wled_context_effects_<effect_name>_restart` - Restart effect
 
 ### 3. Test Your Effect
 
 1. Go to **Developer Tools** → **Services**
-2. Call the `wled_effects.start_effect` service:
+2. Call the `wled_context_effects.start_effect` service:
 
 ```yaml
-service: wled_effects.start_effect
+service: wled_context_effects.start_effect
 target:
-  entity_id: switch.wled_effects_rainbow_wave
+  entity_id: switch.wled_context_effects_rainbow_wave
 ```
 
 3. Your WLED strip should show the effect!
@@ -142,7 +142,7 @@ target:
 
 **Solutions**:
 - Ensure you've restarted Home Assistant after installation
-- Check that files are in the correct directory: `<config>/custom_components/wled_effects/`
+- Check that files are in the correct directory: `<config>/custom_components/wled_context_effects/`
 - Check Home Assistant logs for errors: **Settings** → **System** → **Logs**
 - Verify `manifest.json` exists and is valid JSON
 
@@ -190,7 +190,7 @@ target:
 ### Manual Update
 
 1. Download the latest release
-2. Replace the contents of `custom_components/wled_effects/` with the new files
+2. Replace the contents of `custom_components/wled_context_effects/` with the new files
 3. Restart Home Assistant
 
 **Note**: Configuration entries and entity states are preserved during updates.
@@ -215,7 +215,7 @@ target:
 4. Restart Home Assistant
 
 **Manual**:
-1. Delete the `custom_components/wled_effects/` folder
+1. Delete the `custom_components/wled_context_effects/` folder
 2. Restart Home Assistant
 
 ---

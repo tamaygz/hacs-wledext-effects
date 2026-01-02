@@ -21,7 +21,7 @@ Start an effect.
 ```yaml
 service: switch.turn_on
 target:
-  entity_id: switch.wled_effects_<effect_name>
+  entity_id: switch.wled_context_effects_<effect_name>
 ```
 
 ### Example
@@ -29,7 +29,7 @@ target:
 ```yaml
 service: switch.turn_on
 target:
-  entity_id: switch.wled_effects_rainbow_wave
+  entity_id: switch.wled_context_effects_rainbow_wave
 ```
 
 ---
@@ -43,7 +43,7 @@ Stop a running effect.
 ```yaml
 service: switch.turn_off
 target:
-  entity_id: switch.wled_effects_<effect_name>
+  entity_id: switch.wled_context_effects_<effect_name>
 ```
 
 ### Example
@@ -51,7 +51,7 @@ target:
 ```yaml
 service: switch.turn_off
 target:
-  entity_id: switch.wled_effects_rainbow_wave
+  entity_id: switch.wled_context_effects_rainbow_wave
 ```
 
 ---
@@ -65,7 +65,7 @@ Update a numeric effect parameter.
 ```yaml
 service: number.set_value
 target:
-  entity_id: number.wled_effects_<effect_name>_<parameter>
+  entity_id: number.wled_context_effects_<effect_name>_<parameter>
 data:
   value: <number>
 ```
@@ -76,7 +76,7 @@ data:
 ```yaml
 service: number.set_value
 target:
-  entity_id: number.wled_effects_rainbow_wave_brightness
+  entity_id: number.wled_context_effects_rainbow_wave_brightness
 data:
   value: 200
 ```
@@ -85,7 +85,7 @@ data:
 ```yaml
 service: number.set_value
 target:
-  entity_id: number.wled_effects_loading_speed
+  entity_id: number.wled_context_effects_loading_speed
 data:
   value: 0.1
 ```
@@ -101,7 +101,7 @@ Change an effect mode or option.
 ```yaml
 service: select.select_option
 target:
-  entity_id: select.wled_effects_<effect_name>_<parameter>
+  entity_id: select.wled_context_effects_<effect_name>_<parameter>
 data:
   option: "<option_value>"
 ```
@@ -111,7 +111,7 @@ data:
 ```yaml
 service: select.select_option
 target:
-  entity_id: select.wled_effects_state_sync_animation_mode
+  entity_id: select.wled_context_effects_state_sync_animation_mode
 data:
   option: "center"
 ```
@@ -127,7 +127,7 @@ Trigger an action (e.g., restart effect).
 ```yaml
 service: button.press
 target:
-  entity_id: button.wled_effects_<effect_name>_<action>
+  entity_id: button.wled_context_effects_<effect_name>_<action>
 ```
 
 ### Example
@@ -135,7 +135,7 @@ target:
 ```yaml
 service: button.press
 target:
-  entity_id: button.wled_effects_rainbow_wave_restart
+  entity_id: button.wled_context_effects_rainbow_wave_restart
 ```
 
 ---
@@ -154,7 +154,7 @@ automation:
     action:
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_loading
+          entity_id: switch.wled_context_effects_loading
       - wait_for_trigger:
           - platform: state
             entity_id: binary_sensor.motion
@@ -162,7 +162,7 @@ automation:
             for: "00:01:00"
       - service: switch.turn_off
         target:
-          entity_id: switch.wled_effects_loading
+          entity_id: switch.wled_context_effects_loading
 ```
 
 ### Example 2: Time-Based Speed Adjustment
@@ -176,7 +176,7 @@ automation:
     action:
       - service: number.set_value
         target:
-          entity_id: number.wled_effects_rainbow_wave_speed
+          entity_id: number.wled_context_effects_rainbow_wave_speed
         data:
           value: 5  # Slower
 ```
@@ -193,7 +193,7 @@ automation:
     action:
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_alert_warning
+          entity_id: switch.wled_context_effects_alert_warning
 ```
 
 ---

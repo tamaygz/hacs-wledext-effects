@@ -41,7 +41,7 @@ Common issues and solutions for WLED Effects.
 # Restart effect
 service: button.press
 target:
-  entity_id: button.wled_effects_<name>_restart
+  entity_id: button.wled_context_effects_<name>_restart
 ```
 
 ### Effect Looks Wrong
@@ -68,8 +68,8 @@ target:
 
 ```yaml
 # Monitor performance
-sensor.wled_effects_<name>_frame_rate
-sensor.wled_effects_<name>_latency
+sensor.wled_context_effects_<name>_frame_rate
+sensor.wled_context_effects_<name>_latency
 ```
 
 ## State-Reactive Issues
@@ -224,12 +224,12 @@ sensor.wled_effects_<name>_latency
 
 ```yaml
 # View current status
-sensor.wled_effects_<name>_status
+sensor.wled_context_effects_<name>_status
 
 # View performance
-sensor.wled_effects_<name>_frame_rate
-sensor.wled_effects_<name>_latency
-sensor.wled_effects_<name>_error_rate
+sensor.wled_context_effects_<name>_frame_rate
+sensor.wled_context_effects_<name>_latency
+sensor.wled_context_effects_<name>_error_rate
 ```
 
 ### Enable Debug Logging

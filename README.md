@@ -53,7 +53,7 @@ Transform your WLED LED strips into smart, context-aware displays that react to 
 
 service: switch.turn_on
 target:
-  entity_id: switch.wled_effects_rainbow_wave
+  entity_id: switch.wled_context_effects_rainbow_wave
 ```
 
 📖 **[5-Minute Quick Start Guide](docs/QUICK_START.md)**
@@ -124,7 +124,7 @@ automation:
     action:
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_rainbow_wave
+          entity_id: switch.wled_context_effects_rainbow_wave
 ```
 
 ## 🎯 Advanced Features
@@ -192,11 +192,11 @@ Each effect creates these entities:
 
 | Entity | Purpose | Example |
 |--------|---------|---------|
-| **Switch** | Turn effect on/off | `switch.wled_effects_rainbow_wave` |
-| **Number** | Brightness, speed | `number.wled_effects_rainbow_wave_brightness` |
-| **Select** | Effect modes | `select.wled_effects_state_sync_animation_mode` |
-| **Sensor** | Status, stats | `sensor.wled_effects_rainbow_wave_frame_rate` |
-| **Button** | Restart effect | `button.wled_effects_rainbow_wave_restart` |
+| **Switch** | Turn effect on/off | `switch.wled_context_effects_rainbow_wave` |
+| **Number** | Brightness, speed | `number.wled_context_effects_rainbow_wave_brightness` |
+| **Select** | Effect modes | `select.wled_context_effects_state_sync_animation_mode` |
+| **Sensor** | Status, stats | `sensor.wled_context_effects_rainbow_wave_frame_rate` |
+| **Button** | Restart effect | `button.wled_context_effects_rainbow_wave_restart` |
 
 ## 🔧 Custom Effects
 

@@ -51,7 +51,7 @@ The integration creates a switch entity. Turn it on:
 ```yaml
 service: switch.turn_on
 target:
-  entity_id: switch.wled_effects_rainbow_wave
+  entity_id: switch.wled_context_effects_rainbow_wave
 ```
 
 ### Step 5: Enjoy! 🎉
@@ -69,7 +69,7 @@ Adjust parameters using the number entities:
 ```yaml
 service: number.set_value
 target:
-  entity_id: number.wled_effects_rainbow_wave_speed
+  entity_id: number.wled_context_effects_rainbow_wave_speed
 data:
   value: 20  # Twice as fast!
 ```
@@ -188,12 +188,12 @@ automation:
     action:
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_rainbow_wave
+          entity_id: switch.wled_context_effects_rainbow_wave
       - delay:
           minutes: 5
       - service: switch.turn_off
         target:
-          entity_id: switch.wled_effects_rainbow_wave
+          entity_id: switch.wled_context_effects_rainbow_wave
 ```
 
 ### Automation Example: CPU Alert
@@ -208,7 +208,7 @@ automation:
     action:
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_alert_critical
+          entity_id: switch.wled_context_effects_alert_critical
 ```
 
 ---
@@ -219,42 +219,42 @@ Each effect creates these entities:
 
 ### Switch Entity
 **Purpose**: Turn effect on/off  
-**Example**: `switch.wled_effects_rainbow_wave`
+**Example**: `switch.wled_context_effects_rainbow_wave`
 
 ```yaml
 # Turn on
 service: switch.turn_on
 target:
-  entity_id: switch.wled_effects_rainbow_wave
+  entity_id: switch.wled_context_effects_rainbow_wave
 
 # Turn off
 service: switch.turn_off
 target:
-  entity_id: switch.wled_effects_rainbow_wave
+  entity_id: switch.wled_context_effects_rainbow_wave
 ```
 
 ### Number Entities
 **Purpose**: Adjust effect parameters  
 **Examples**:
-- `number.wled_effects_rainbow_wave_brightness` (0-255)
-- `number.wled_effects_rainbow_wave_speed` (varies by effect)
+- `number.wled_context_effects_rainbow_wave_brightness` (0-255)
+- `number.wled_context_effects_rainbow_wave_speed` (varies by effect)
 
 ```yaml
 service: number.set_value
 target:
-  entity_id: number.wled_effects_rainbow_wave_brightness
+  entity_id: number.wled_context_effects_rainbow_wave_brightness
 data:
   value: 200
 ```
 
 ### Select Entity
 **Purpose**: Choose effect modes  
-**Example**: `select.wled_effects_state_sync_animation_mode`
+**Example**: `select.wled_context_effects_state_sync_animation_mode`
 
 ```yaml
 service: select.select_option
 target:
-  entity_id: select.wled_effects_state_sync_animation_mode
+  entity_id: select.wled_context_effects_state_sync_animation_mode
 data:
   option: "fill"
 ```
@@ -262,17 +262,17 @@ data:
 ### Sensor Entities
 **Purpose**: Monitor effect status  
 **Examples**:
-- `sensor.wled_effects_rainbow_wave_status` - Current state
-- `sensor.wled_effects_rainbow_wave_frame_rate` - Performance
+- `sensor.wled_context_effects_rainbow_wave_status` - Current state
+- `sensor.wled_context_effects_rainbow_wave_frame_rate` - Performance
 
 ### Button Entity
 **Purpose**: Trigger actions  
-**Example**: `button.wled_effects_rainbow_wave_restart`
+**Example**: `button.wled_context_effects_rainbow_wave_restart`
 
 ```yaml
 service: button.press
 target:
-  entity_id: button.wled_effects_rainbow_wave_restart
+  entity_id: button.wled_context_effects_rainbow_wave_restart
 ```
 
 ---
@@ -284,7 +284,7 @@ target:
 ```yaml
 service: switch.turn_on
 target:
-  entity_id: switch.wled_effects_<effect_name>
+  entity_id: switch.wled_context_effects_<effect_name>
 ```
 
 ### Stop Effect
@@ -292,7 +292,7 @@ target:
 ```yaml
 service: switch.turn_off
 target:
-  entity_id: switch.wled_effects_<effect_name>
+  entity_id: switch.wled_context_effects_<effect_name>
 ```
 
 ### Update Configuration
@@ -300,7 +300,7 @@ target:
 ```yaml
 service: number.set_value
 target:
-  entity_id: number.wled_effects_<effect_name>_<parameter>
+  entity_id: number.wled_context_effects_<effect_name>_<parameter>
 data:
   value: <new_value>
 ```
@@ -316,11 +316,11 @@ Turn on an effect for a specific duration:
 ```yaml
 - service: switch.turn_on
   target:
-    entity_id: switch.wled_effects_alert
+    entity_id: switch.wled_context_effects_alert
 - delay: "00:02:00"  # 2 minutes
 - service: switch.turn_off
   target:
-    entity_id: switch.wled_effects_alert
+    entity_id: switch.wled_context_effects_alert
 ```
 
 ### Pattern 2: Conditional Effects
@@ -336,7 +336,7 @@ Different effects based on conditions:
       sequence:
         - service: switch.turn_on
           target:
-            entity_id: switch.wled_effects_alert_high_cpu
+            entity_id: switch.wled_context_effects_alert_high_cpu
     - conditions:
         - condition: numeric_state
           entity_id: sensor.cpu_usage
@@ -344,7 +344,7 @@ Different effects based on conditions:
       sequence:
         - service: switch.turn_on
           target:
-            entity_id: switch.wled_effects_rainbow_calm
+            entity_id: switch.wled_context_effects_rainbow_calm
 ```
 
 ### Pattern 3: Time-Based Effects
@@ -356,11 +356,11 @@ Different effects for different times of day:
   target:
     entity_id: >
       {% if now().hour < 8 %}
-        switch.wled_effects_breathe_calm
+        switch.wled_context_effects_breathe_calm
       {% elif now().hour < 20 %}
-        switch.wled_effects_rainbow_bright
+        switch.wled_context_effects_rainbow_bright
       {% else %}
-        switch.wled_effects_breathe_dim
+        switch.wled_context_effects_breathe_dim
       {% endif %}
 ```
 

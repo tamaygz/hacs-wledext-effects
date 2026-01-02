@@ -90,7 +90,7 @@ Inverts the LED order, making effects run in opposite direction.
 
 **Example:**
 ```yaml
-service: wled_effects.start_effect
+service: wled_context_effects.start_effect
 data:
   device_id: my_wled
   effect_name: rainbow_wave
@@ -167,7 +167,7 @@ config:
 
 ### Example 1: Temperature-Reactive Effect
 ```yaml
-service: wled_effects.start_effect
+service: wled_context_effects.start_effect
 data:
   device_id: my_wled
   effect_name: state_sync
@@ -184,7 +184,7 @@ data:
 
 ### Example 2: Multi-Sensor Ambient Lighting
 ```yaml
-service: wled_effects.start_effect
+service: wled_context_effects.start_effect
 data:
   device_id: my_wled
   effect_name: state_sync
@@ -221,7 +221,7 @@ trigger_config:
 
 ### Example 5: Reversed Loading Effect
 ```yaml
-service: wled_effects.start_effect
+service: wled_context_effects.start_effect
 data:
   device_id: my_wled
   effect_name: loading
@@ -423,14 +423,14 @@ await self.trigger_manager.setup()
 ### Test 1: Flip Direction
 ```yaml
 # Start effect normally
-service: wled_effects.start_effect
+service: wled_context_effects.start_effect
 data:
   effect_name: loading
   config:
     reverse_direction: false
 
 # Then update config
-service: wled_effects.update_effect_config
+service: wled_context_effects.update_effect_config
 data:
   config:
     reverse_direction: true  # Should reverse direction
@@ -438,7 +438,7 @@ data:
 
 ### Test 2: Multi-Input Blending
 ```yaml
-service: wled_effects.start_effect
+service: wled_context_effects.start_effect
 data:
   effect_name: state_sync
   config:
@@ -539,7 +539,7 @@ New features are opt-in via configuration.
 
 We encourage community contributions! Your custom context-aware effects can be:
 
-1. Added to `custom_components/wled_effects/effects/`
+1. Added to `custom_components/wled_context_effects/effects/`
 2. Decorated with `@register_effect`
 3. Auto-discovered on integration load
 

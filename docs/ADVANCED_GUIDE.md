@@ -239,13 +239,13 @@ automation:
       # Phase 1: Gentle wake
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_breathe_morning
+          entity_id: switch.wled_context_effects_breathe_morning
       - delay: "00:05:00"
       
       # Phase 2: Increase brightness
       - service: number.set_value
         target:
-          entity_id: number.wled_effects_breathe_morning_brightness
+          entity_id: number.wled_context_effects_breathe_morning_brightness
         data:
           value: 200
       - delay: "00:05:00"
@@ -253,10 +253,10 @@ automation:
       # Phase 3: Switch to active
       - service: switch.turn_off
         target:
-          entity_id: switch.wled_effects_breathe_morning
+          entity_id: switch.wled_context_effects_breathe_morning
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_rainbow_day
+          entity_id: switch.wled_context_effects_rainbow_day
 ```
 
 ### Conditional Effect Selection
@@ -279,9 +279,9 @@ automation:
                 target:
                   entity_id: >
                     {% if is_state('sun.sun', 'above_horizon') %}
-                      switch.wled_effects_bright_ambient
+                      switch.wled_context_effects_bright_ambient
                     {% else %}
-                      switch.wled_effects_warm_evening
+                      switch.wled_context_effects_warm_evening
                     {% endif %}
           
           # Unoccupied
@@ -292,7 +292,7 @@ automation:
             sequence:
               - service: switch.turn_on
                 target:
-                  entity_id: switch.wled_effects_dim_standby
+                  entity_id: switch.wled_context_effects_dim_standby
 ```
 
 ---
@@ -306,7 +306,7 @@ Update effect parameters on-the-fly without restarting.
 ```yaml
 service: number.set_value
 target:
-  entity_id: number.wled_effects_rainbow_wave_speed
+  entity_id: number.wled_context_effects_rainbow_wave_speed
 data:
   value: 50  # Double the speed
 ```
@@ -316,7 +316,7 @@ data:
 ```yaml
 service: select.select_option
 target:
-  entity_id: select.wled_effects_state_sync_animation_mode
+  entity_id: select.wled_context_effects_state_sync_animation_mode
 data:
   option: "center"  # Change animation mode
 ```
@@ -332,7 +332,7 @@ automation:
     action:
       - service: number.set_value
         target:
-          entity_id: number.wled_effects_sparkle_density
+          entity_id: number.wled_context_effects_sparkle_density
         data:
           value: >
             {{ states('sensor.home_activity_level') | float / 100 }}
@@ -355,7 +355,7 @@ automation:
     action:
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_loading_path
+          entity_id: switch.wled_context_effects_loading_path
       - wait_for_trigger:
           - platform: state
             entity_id: binary_sensor.hallway_motion
@@ -363,7 +363,7 @@ automation:
             for: "00:01:00"
       - service: switch.turn_off
         target:
-          entity_id: switch.wled_effects_loading_path
+          entity_id: switch.wled_context_effects_loading_path
 ```
 
 ### Pattern 2: Alert Escalation
@@ -379,7 +379,7 @@ automation:
       # Level 1: Warning
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_alert_warning
+          entity_id: switch.wled_context_effects_alert_warning
       - wait_template: "{{ states('sensor.server_temperature') | float < 70 }}"
         timeout: "00:05:00"
         continue_on_timeout: true
@@ -390,10 +390,10 @@ automation:
         above: 70
       - service: switch.turn_off
         target:
-          entity_id: switch.wled_effects_alert_warning
+          entity_id: switch.wled_context_effects_alert_warning
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_alert_critical
+          entity_id: switch.wled_context_effects_alert_critical
 ```
 
 ### Pattern 3: Multi-Zone Control
@@ -412,10 +412,10 @@ automation:
     action:
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_alert_security
+          entity_id: switch.wled_context_effects_alert_security
       - service: select.select_option
         target:
-          entity_id: select.wled_effects_alert_security_zone
+          entity_id: select.wled_context_effects_alert_security_zone
         data:
           option: >
             {% if trigger.entity_id == 'binary_sensor.front_door' %}
@@ -479,9 +479,9 @@ Effects scale well up to 300 LEDs. Beyond that:
 Check sensor entities:
 
 ```yaml
-sensor.wled_effects_<name>_frame_rate  # Current FPS
-sensor.wled_effects_<name>_latency     # Network latency
-sensor.wled_effects_<name>_error_rate  # Error percentage
+sensor.wled_context_effects_<name>_frame_rate  # Current FPS
+sensor.wled_context_effects_<name>_latency     # Network latency
+sensor.wled_context_effects_<name>_error_rate  # Error percentage
 ```
 
 ### Troubleshooting Slow Performance
@@ -528,9 +528,9 @@ automation:
       - service: switch.turn_on
         target:
           entity_id:
-            - switch.wled_effects_kitchen_rainbow
-            - switch.wled_effects_bedroom_rainbow
-            - switch.wled_effects_hallway_rainbow
+            - switch.wled_context_effects_kitchen_rainbow
+            - switch.wled_context_effects_bedroom_rainbow
+            - switch.wled_context_effects_hallway_rainbow
 ```
 
 ### Coordinated Effects
@@ -544,29 +544,29 @@ automation:
       # Front: Red strobe
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_front_alert_critical
+          entity_id: switch.wled_context_effects_front_alert_critical
       
       # Back: Orange pulse
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_back_alert_warning
+          entity_id: switch.wled_context_effects_back_alert_warning
       
       # Interior: Blue steady
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_interior_alert_info
+          entity_id: switch.wled_context_effects_interior_alert_info
 ```
 
 ### Room-Based Groups
 
 ```yaml
 # groups.yaml
-wled_effects_living_room:
+wled_context_effects_living_room:
   name: "Living Room LED Effects"
   entities:
-    - switch.wled_effects_tv_backlight
-    - switch.wled_effects_shelf_accent
-    - switch.wled_effects_ceiling_ambient
+    - switch.wled_context_effects_tv_backlight
+    - switch.wled_context_effects_shelf_accent
+    - switch.wled_context_effects_ceiling_ambient
 
 # Automation
 automation:
@@ -574,10 +574,10 @@ automation:
     action:
       - service: homeassistant.turn_off
         target:
-          entity_id: group.wled_effects_living_room
+          entity_id: group.wled_context_effects_living_room
       - service: switch.turn_on
         target:
-          entity_id: switch.wled_effects_tv_backlight_dim
+          entity_id: switch.wled_context_effects_tv_backlight_dim
 ```
 
 ---
@@ -634,11 +634,11 @@ automation:
         target:
           entity_id: >
             {% if states('sensor.notification_priority') | int < 3 %}
-              switch.wled_effects_notifications_low
+              switch.wled_context_effects_notifications_low
             {% elif states('sensor.notification_priority') | int < 7 %}
-              switch.wled_effects_notifications_medium
+              switch.wled_context_effects_notifications_medium
             {% else %}
-              switch.wled_effects_notifications_high
+              switch.wled_context_effects_notifications_high
             {% endif %}
 ```
 
@@ -656,15 +656,15 @@ automation:
           entity_id: >
             {% set condition = states('weather.home') %}
             {% if condition == 'sunny' %}
-              switch.wled_effects_weather_sunny
+              switch.wled_context_effects_weather_sunny
             {% elif condition == 'rainy' %}
-              switch.wled_effects_weather_rainy
+              switch.wled_context_effects_weather_rainy
             {% elif condition == 'cloudy' %}
-              switch.wled_effects_weather_cloudy
+              switch.wled_context_effects_weather_cloudy
             {% elif condition == 'snowy' %}
-              switch.wled_effects_weather_snowy
+              switch.wled_context_effects_weather_snowy
             {% else %}
-              switch.wled_effects_weather_default
+              switch.wled_context_effects_weather_default
             {% endif %}
 
 # Effect configurations

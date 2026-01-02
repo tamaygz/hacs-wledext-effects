@@ -1,11 +1,11 @@
-# Services for WLED Effects integration
+# Services for WLED Context Effects integration
 
 start_effect:
   name: Start Effect
   description: Start a configured effect
   target:
     entity:
-      integration: wled_effects
+      integration: wled_context_effects
       domain: switch
 
 stop_effect:
@@ -13,7 +13,7 @@ stop_effect:
   description: Stop a running effect
   target:
     entity:
-      integration: wled_effects
+      integration: wled_context_effects
       domain: switch
 
 run_once:
@@ -21,7 +21,7 @@ run_once:
   description: Run effect once (single iteration)
   target:
     entity:
-      integration: wled_effects
+      integration: wled_context_effects
       domain: switch
 
 set_config:
@@ -29,7 +29,7 @@ set_config:
   description: Update effect configuration dynamically
   target:
     entity:
-      integration: wled_effects
+      integration: wled_context_effects
       domain: switch
   fields:
     config:
