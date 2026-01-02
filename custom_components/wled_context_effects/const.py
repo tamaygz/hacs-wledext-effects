@@ -10,6 +10,7 @@ PLATFORMS: Final = ["switch", "number", "select", "sensor", "button"]
 
 # Configuration and options
 CONF_WLED_DEVICE_ID: Final = "wled_device_id"
+CONF_WLED_UNIQUE_ID: Final = "wled_unique_id"
 CONF_WLED_HOST: Final = "wled_host"
 CONF_EFFECT_TYPE: Final = "effect_type"
 CONF_EFFECT_NAME: Final = "effect_name"

@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     ATTR_LAST_ERROR,
     ATTR_SUCCESS_RATE,
+    CONF_WLED_UNIQUE_ID,
     DOMAIN,
     ICON_ERROR,
     STATE_ERROR,
@@ -73,11 +74,11 @@ class WLEDEffectSensorBase(CoordinatorEntity[EffectCoordinator], SensorEntity):
         self._attr_name = name
         
         # Set device info
-        wled_device_id = entry.data.get("wled_device_id", "")
+        wled_unique_id = entry.data.get(CONF_WLED_UNIQUE_ID, "")
         effect_type = entry.data.get("effect_type", "")
         effect_name = entry.options.get("effect_name", "Effect")
         self._attr_device_info = create_device_info(
-            entry, wled_device_id, effect_name, effect_type
+            entry, wled_unique_id, effect_name, effect_type
         )
 
 

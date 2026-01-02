@@ -23,18 +23,23 @@ def create_device_info(
 
     Args:
         entry: Config entry for the effect
-        wled_device_id: ID of the parent WLED device
+        wled_device_id: Unique ID of the parent WLED device (from WLED integration)
         effect_name: User-friendly name of the effect
         effect_type: Type/class name of the effect
 
     Returns:
         DeviceInfo dict
     """
-    return DeviceInfo(
+    device_info = DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
         name=f"{effect_name} Effect",
         manufacturer="WLED Effects",
         model=effect_type,
-        via_device=(WLED_DOMAIN, wled_device_id),
         configuration_url=f"homeassistant://config/integrations/integration/{DOMAIN}",
     )
+    
+    # Link to parent WLED device if we have the unique_id
+    if wled_device_id:
+        device_info["via_device"] = (WLED_DOMAIN, wled_device_id)
+    
+    return device_info
