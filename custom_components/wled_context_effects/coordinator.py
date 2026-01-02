@@ -91,9 +91,12 @@ class EffectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "last_stopped": self._last_stopped,
                 "running_time": self.effect.running_time,
             }
-        except Exception as err:
-            _LOGGER.error("Error updating effect coordinator: %s", err)
-            raise UpdateFailed(f"Error updating effect data: {err}") from err
+        except (AttributeError, KeyError, TypeError) as err:
+            _LOGGER.error("Error accessing effect data: %s", err)
+            raise UpdateFailed(f"Error accessing effect data: {err}") from err
+        except EffectExecutionError as err:
+            _LOGGER.error("Effect execution error during update: %s", err)
+            raise UpdateFailed(f"Effect execution error: {err}") from err
 
     def _get_state(self) -> str:
         """Get current state string."""
@@ -111,9 +114,12 @@ class EffectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._last_started = datetime.now()
             await self.async_request_refresh()
 
-        except Exception as err:
+        except EffectExecutionError as err:
             _LOGGER.error("Failed to start effect: %s", err)
-            raise EffectExecutionError(f"Failed to start effect: {err}") from err
+            raise
+        except (OSError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Connection error starting effect: %s", err)
+            raise EffectExecutionError(f"Connection error starting effect: {err}") from err
 
     async def async_stop_effect(self) -> None:
         """Stop the effect."""
@@ -123,9 +129,12 @@ class EffectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._last_stopped = datetime.now()
             await self.async_request_refresh()
 
-        except Exception as err:
+        except EffectExecutionError as err:
             _LOGGER.error("Failed to stop effect: %s", err)
-            raise EffectExecutionError(f"Failed to stop effect: {err}") from err
+            raise
+        except (OSError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Connection error stopping effect: %s", err)
+            raise EffectExecutionError(f"Connection error stopping effect: {err}") from err
 
     async def async_run_once(self) -> None:
         """Run effect once."""
@@ -134,9 +143,12 @@ class EffectCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self.effect.run_once()
             await self.async_request_refresh()
 
-        except Exception as err:
+        except EffectExecutionError as err:
             _LOGGER.error("Failed to run effect once: %s", err)
-            raise EffectExecutionError(f"Failed to run effect once: {err}") from err
+            raise
+        except (OSError, asyncio.TimeoutError) as err:
+            _LOGGER.error("Connection error running effect: %s", err)
+            raise EffectExecutionError(f"Connection error running effect: {err}") from err
 
     async def async_update_config(self, config: dict[str, Any]) -> None:
         """Update effect configuration.

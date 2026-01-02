@@ -114,9 +114,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # This is a configuration error, not a temporary issue
         return False
 
-    except Exception as err:
-        _LOGGER.exception("Unexpected error setting up WLED Effects: %s", err)
-        raise ConfigEntryNotReady(f"Unexpected error: {err}") from err
+    except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
+        _LOGGER.error("Connection/network error during setup: %s", err)
+        raise ConfigEntryNotReady(f"Connection error: {err}") from err
+    
+    except (ValueError, KeyError, TypeError) as err:
+        _LOGGER.error("Configuration/data error during setup: %s", err)
+        raise ConfigEntryNotReady(f"Configuration error: {err}") from err
+
+    except EffectExecutionError as err:
+        _LOGGER.error("Effect execution error during setup: %s", err)
+        raise ConfigEntryNotReady(f"Effect error: {err}") from err
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -143,7 +151,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if effect.running:
             try:
                 await effect.stop()
-            except Exception as err:
+            except (EffectExecutionError, asyncio.TimeoutError, OSError) as err:
                 _LOGGER.error("Error stopping effect during unload: %s", err)
 
         # Close JSON client
@@ -151,7 +159,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if json_client:
             try:
                 await json_client.close()
-            except Exception as err:
+            except (OSError, asyncio.TimeoutError) as err:
                 _LOGGER.error("Error closing JSON client during unload: %s", err)
 
         # Clean up if this was the last entry (only connection_manager remains)
