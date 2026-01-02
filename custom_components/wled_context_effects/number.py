@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from ..const import (
+from .const import (
     CONF_BRIGHTNESS,
     CONF_SEGMENT_ID,
     CONF_START_LED,
@@ -29,8 +29,8 @@ from ..const import (
     NUMBER_SEGMENT_MIN,
     NUMBER_SEGMENT_STEP,
 )
-from ..coordinator import EffectCoordinator
-from ..device import create_device_info
+from .coordinator import EffectCoordinator
+from .device import create_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
