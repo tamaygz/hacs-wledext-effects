@@ -71,62 +71,102 @@ class WLEDJsonApiClient:
     async def close(self) -> None:
         """Close the client session."""
         if self._owned_session and self._session and not self._session.closed:
-            await self._session.close()
-            self._session = None
-            _LOGGER.debug("WLED JSON API client session closed for %s", self.host)
+            try:
+                await self._session.close()
+            except Exception as err:
+                _LOGGER.warning("Error closing session for %s: %s", self.host, err)
+            finally:
+                self._session = None
+                _LOGGER.debug("WLED JSON API client session closed for %s", self.host)
 
     async def _request(
         self,
         method: str,
         endpoint: str,
         json_data: dict[str, Any] | None = None,
+        max_retries: int = 3,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Make HTTP request to WLED device.
+        """Make HTTP request to WLED device with retry logic.
 
         Args:
             method: HTTP method (GET, POST)
             endpoint: API endpoint path
             json_data: Optional JSON payload
+            max_retries: Maximum number of retry attempts for transient failures
             **kwargs: Additional aiohttp request parameters
 
         Returns:
             JSON response as dict
 
         Raises:
-            WLEDConnectionError: If request fails
+            WLEDConnectionError: If request fails after all retries
         """
         session = await self._ensure_session()
         url = f"{self.base_url}{endpoint}"
+        last_error = None
 
-        try:
-            async with session.request(
-                method,
-                url,
-                json=json_data,
-                **kwargs,
-            ) as response:
-                response.raise_for_status()
-                
-                if response.content_type == "application/json":
-                    data = await response.json()
-                    _LOGGER.debug("WLED API response from %s: %s", endpoint, data)
-                    return data
-                else:
-                    # Some endpoints may return empty response
-                    _LOGGER.debug("WLED API non-JSON response from %s", endpoint)
-                    return {}
+        for attempt in range(max_retries):
+            try:
+                async with session.request(
+                    method,
+                    url,
+                    json=json_data,
+                    **kwargs,
+                ) as response:
+                    # Retry on 5xx server errors
+                    if response.status >= 500 and attempt < max_retries - 1:
+                        _LOGGER.warning(
+                            "Server error %d from %s, retrying (attempt %d/%d)",
+                            response.status, endpoint, attempt + 1, max_retries
+                        )
+                        await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                        continue
+                    
+                    response.raise_for_status()
+                    
+                    if response.content_type == "application/json":
+                        data = await response.json()
+                        _LOGGER.debug("WLED API response from %s: %s", endpoint, data)
+                        return data
+                    else:
+                        # Some endpoints may return empty response
+                        _LOGGER.debug("WLED API non-JSON response from %s", endpoint)
+                        return {}
 
-        except aiohttp.ClientError as err:
-            _LOGGER.error("WLED API request failed for %s%s: %s", self.base_url, endpoint, err)
-            raise WLEDConnectionError(
-                f"WLED API request failed: {err}"
-            ) from err
-        except asyncio.TimeoutError as err:
-            _LOGGER.error("WLED API request timeout for %s%s", self.base_url, endpoint)
-            raise WLEDConnectionError(
-                f"WLED API request timeout for {self.base_url}{endpoint}"
-            ) from err
+            except asyncio.TimeoutError as err:
+                last_error = err
+                if attempt < max_retries - 1:
+                    _LOGGER.warning(
+                        "Timeout for %s%s, retrying (attempt %d/%d)",
+                        self.base_url, endpoint, attempt + 1, max_retries
+                    )
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                _LOGGER.error("WLED API request timeout for %s%s after %d attempts", self.base_url, endpoint, max_retries)
+                raise WLEDConnectionError(
+                    f"WLED API request timeout after {max_retries} attempts: {self.base_url}{endpoint}"
+                ) from err
+            
+            except aiohttp.ClientError as err:
+                last_error = err
+                # Retry on connection errors but not on client errors (4xx)
+                if isinstance(err, (aiohttp.ClientConnectionError, aiohttp.ServerTimeoutError)) and attempt < max_retries - 1:
+                    _LOGGER.warning(
+                        "Connection error for %s%s: %s, retrying (attempt %d/%d)",
+                        self.base_url, endpoint, err, attempt + 1, max_retries
+                    )
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                _LOGGER.error("WLED API request failed for %s%s: %s", self.base_url, endpoint, err)
+                raise WLEDConnectionError(
+                    f"WLED API request failed: {err}"
+                ) from err
+        
+        # Should not reach here, but just in case
+        raise WLEDConnectionError(
+            f"WLED API request failed after {max_retries} attempts"
+        ) from last_error
 
     # ========== State Management ==========
 
@@ -175,7 +215,25 @@ class WLEDJsonApiClient:
 
         Returns:
             Full state object if return_state=True, else None
+            
+        Raises:
+            ValueError: If state structure is invalid
         """
+        # Validate state structure
+        if "bri" in state and not isinstance(state["bri"], int):
+            raise ValueError(f"Invalid brightness value: {state['bri']} (must be int)")
+        if "bri" in state and not 0 <= state["bri"] <= 255:
+            raise ValueError(f"Brightness out of range: {state['bri']} (must be 0-255)")
+        
+        if "seg" in state:
+            if not isinstance(state["seg"], list):
+                raise ValueError("Segment data must be a list")
+            for seg in state["seg"]:
+                if not isinstance(seg, dict):
+                    raise ValueError("Each segment must be a dict")
+                if "id" in seg and not isinstance(seg["id"], int):
+                    raise ValueError(f"Segment id must be int, got {type(seg['id'])}")
+        
         if return_state:
             state["v"] = True
         
@@ -314,14 +372,17 @@ class WLEDJsonApiClient:
         Returns:
             Estimated buffer size in bytes
         """
-        # Rough estimation: JSON overhead + data
-        # Each hex color is ~8 chars, each index is ~2-4 chars
-        import json
-        test_payload = {"seg": {"i": led_data[:min(10, len(led_data))]}}
-        sample_size = len(json.dumps(test_payload))
-        # Extrapolate for full array
-        estimated = int((sample_size / min(10, len(led_data))) * len(led_data) * 1.2)
-        return estimated
+        # Simple estimation without JSON serialization (faster, no event loop blocking)
+        # Base JSON structure: {"seg":{"i":[...]}}
+        base_overhead = 20  # bytes for JSON structure
+        
+        # Each hex color string: "FF00AA" (6 chars) + quotes + comma = ~10 bytes
+        # Each index: 1-4 digits + comma = ~5 bytes average
+        bytes_per_element = 10
+        
+        estimated = base_overhead + (len(led_data) * bytes_per_element)
+        # Add 20% safety margin
+        return int(estimated * 1.2)
 
     async def set_individual_leds(
         self,
@@ -353,7 +414,8 @@ class WLEDJsonApiClient:
         
         # Check buffer size and batch if necessary
         estimated_size = self._estimate_buffer_size(led_data)
-        max_buffer = MAX_BUFFER_ESP32  # Use ESP32 limit as safe default
+        # Get device-specific buffer size
+        max_buffer = await self.get_max_buffer_size()
         
         if estimated_size > max_buffer:
             # Need to batch
@@ -362,7 +424,7 @@ class WLEDJsonApiClient:
                 estimated_size,
                 max_buffer,
             )
-            await self._set_leds_batched(segment_id, hex_colors, start_index)
+            await self._set_leds_batched(segment_id, hex_colors, start_index, max_buffer)
         else:
             # Single call
             await self.update_segment(segment_id, i=led_data)
@@ -378,6 +440,7 @@ class WLEDJsonApiClient:
         segment_id: int,
         hex_colors: list[str],
         start_index: int = 0,
+        max_buffer: int = MAX_BUFFER_ESP32,
     ) -> None:
         """Set LEDs in batches to respect buffer limits.
 
@@ -385,10 +448,19 @@ class WLEDJsonApiClient:
             segment_id: Segment ID
             hex_colors: List of hex color strings
             start_index: Starting LED index
+            max_buffer: Maximum buffer size for device
         """
-        # Batch size: ~256 LEDs at a time (safe for most devices)
-        batch_size = 256
+        # Calculate optimal batch size based on buffer (10 bytes per LED + 20 byte overhead)
+        bytes_per_led = 10
+        batch_size = max(1, int((max_buffer * 0.8 - 20) / bytes_per_led))  # 80% of buffer for safety
+        
         total_leds = len(hex_colors)
+        total_batches = (total_leds + batch_size - 1) // batch_size
+        
+        _LOGGER.debug(
+            "Batching %d LEDs into %d batches of ~%d LEDs (max_buffer=%d)",
+            total_leds, total_batches, batch_size, max_buffer
+        )
         
         for i in range(0, total_leds, batch_size):
             batch = hex_colors[i:i + batch_size]
@@ -405,10 +477,10 @@ class WLEDJsonApiClient:
                 batch_start + len(batch) - 1,
                 segment_id,
                 i // batch_size + 1,
-                (total_leds + batch_size - 1) // batch_size,
+                total_batches,
             )
             
-            # Small delay between batches to avoid overwhelming device
+            # Small delay between batches to avoid overwhelming device (50ms)
             if i + batch_size < total_leds:
                 await asyncio.sleep(0.05)
 
@@ -507,8 +579,8 @@ class WLEDJsonApiClient:
                 return MAX_BUFFER_ESP32
             else:
                 return MAX_BUFFER_ESP8266
-        except Exception as err:
-            _LOGGER.warning("Could not determine device architecture: %s", err)
+        except (WLEDConnectionError, KeyError, AttributeError) as err:
+            _LOGGER.warning("Could not determine device architecture: %s, using conservative default", err)
             return MAX_BUFFER_ESP8266  # Conservative default
 
     async def __aenter__(self) -> WLEDJsonApiClient:

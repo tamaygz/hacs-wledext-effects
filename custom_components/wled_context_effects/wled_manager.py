@@ -16,6 +16,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# Maximum number of cached clients to prevent unbounded memory growth
+MAX_CACHED_CLIENTS = 20
+
 
 class WLEDConnectionManager:
     """Manage WLED device connections.
@@ -50,7 +53,19 @@ class WLEDConnectionManager:
         """
         if host in self._clients:
             _LOGGER.debug("Reusing existing WLED client for %s", host)
-            return self._clients[host]
+            # Move to end (LRU)
+            client = self._clients.pop(host)
+            self._clients[host] = client
+            return client
+
+        # Check if at capacity and evict oldest
+        total_clients = len(self._clients) + len(self._json_clients)
+        if total_clients >= MAX_CACHED_CLIENTS:
+            # Evict oldest python-wled client
+            if self._clients:
+                oldest_host = next(iter(self._clients))
+                _LOGGER.info("Client cache full (%d), evicting oldest: %s", MAX_CACHED_CLIENTS, oldest_host)
+                await self.close_client(oldest_host)
 
         try:
             _LOGGER.info("Creating new WLED client for %s", host)
@@ -70,7 +85,7 @@ class WLEDConnectionManager:
 
         except WLEDConnectionError:
             raise
-        except Exception as err:
+        except (OSError, asyncio.TimeoutError, ValueError) as err:
             _LOGGER.error("Failed to connect to WLED device at %s: %s", host, err)
             raise WLEDConnectionError(
                 f"Failed to connect to WLED device at {host}: {err}"
@@ -117,7 +132,20 @@ class WLEDConnectionManager:
         
         if client_key in self._json_clients:
             _LOGGER.debug("Reusing existing JSON API client for %s", client_key)
-            return self._json_clients[client_key]
+            # Move to end (LRU)
+            client = self._json_clients.pop(client_key)
+            self._json_clients[client_key] = client
+            return client
+
+        # Check if at capacity and evict oldest
+        total_clients = len(self._clients) + len(self._json_clients)
+        if total_clients >= MAX_CACHED_CLIENTS:
+            # Evict oldest JSON API client
+            if self._json_clients:
+                oldest_key = next(iter(self._json_clients))
+                _LOGGER.info("Client cache full (%d), evicting oldest: %s", MAX_CACHED_CLIENTS, oldest_key)
+                parts = oldest_key.split(":")
+                await self.close_json_client(parts[0], int(parts[1]) if len(parts) > 1 else 80)
 
         try:
             _LOGGER.info("Creating new JSON API client for %s", client_key)
@@ -137,7 +165,7 @@ class WLEDConnectionManager:
 
         except WLEDConnectionError:
             raise
-        except Exception as err:
+        except (OSError, asyncio.TimeoutError, ValueError) as err:
             _LOGGER.error("Failed to connect to WLED device at %s: %s", client_key, err)
             raise WLEDConnectionError(
                 f"Failed to connect to WLED device at {client_key}: {err}"

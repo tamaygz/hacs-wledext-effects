@@ -278,13 +278,23 @@ class StateSourceCoordinator(DataUpdateCoordinator[Any]):
 
         if value is None:
             return min_value
+        
+        # Check for numeric types first
+        if not isinstance(value, (int, float, str)):
+            _LOGGER.warning(
+                "Value %s is not numeric type (%s), using min_value",
+                value,
+                type(value).__name__,
+            )
+            return min_value
 
         try:
             numeric_value = float(value)
             return max(min_value, min(max_value, numeric_value))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as err:
             _LOGGER.warning(
-                "Could not convert value %s to numeric, using min_value",
+                "Could not convert value %s to numeric: %s, using min_value",
                 value,
+                err,
             )
             return min_value
