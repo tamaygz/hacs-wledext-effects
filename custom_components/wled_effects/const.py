@@ -119,5 +119,62 @@ NUMBER_LED_MIN: Final = 0
 NUMBER_LED_MAX: Final = 1000  # Will be overridden by device capabilities
 NUMBER_LED_STEP: Final = 1
 
+# Blend modes for combining multiple inputs
+BLEND_MODE_AVERAGE: Final = "average"
+BLEND_MODE_MAX: Final = "max"
+BLEND_MODE_MIN: Final = "min"
+BLEND_MODE_MULTIPLY: Final = "multiply"
+BLEND_MODE_ADD: Final = "add"
+BLEND_MODES: Final = [
+    BLEND_MODE_AVERAGE,
+    BLEND_MODE_MAX,
+    BLEND_MODE_MIN,
+    BLEND_MODE_MULTIPLY,
+    BLEND_MODE_ADD,
+]
+
+# Trigger types
+TRIGGER_TYPE_STATE_CHANGE: Final = "state_change"
+TRIGGER_TYPE_THRESHOLD: Final = "threshold"
+TRIGGER_TYPE_TIME: Final = "time"
+TRIGGER_TYPE_EVENT: Final = "event"
+TRIGGER_TYPES: Final = [
+    TRIGGER_TYPE_STATE_CHANGE,
+    TRIGGER_TYPE_THRESHOLD,
+    TRIGGER_TYPE_TIME,
+    TRIGGER_TYPE_EVENT,
+]
+
+# Transition modes
+TRANSITION_MODE_INSTANT: Final = "instant"
+TRANSITION_MODE_FADE: Final = "fade"
+TRANSITION_MODE_SMOOTH: Final = "smooth"
+TRANSITION_MODES: Final = [
+    TRANSITION_MODE_INSTANT,
+    TRANSITION_MODE_FADE,
+    TRANSITION_MODE_SMOOTH,
+]
+
+# Zone configuration
+CONF_ZONE_COUNT: Final = "zone_count"
+CONF_ZONE_SIZE: Final = "zone_size"
+CONF_ZONE_OVERLAP: Final = "zone_overlap"
+
+# Effect modulation
+CONF_REVERSE_DIRECTION: Final = "reverse_direction"
+CONF_FREEZE_ON_MANUAL: Final = "freeze_on_manual"
+CONF_TRIGGER_CONFIG: Final = "trigger_config"
+CONF_DATA_MAPPING: Final = "data_mapping"
+CONF_BLEND_MODE: Final = "blend_mode"
+CONF_TRANSITION_MODE: Final = "transition_mode"
+CONF_REACTIVE_INPUTS: Final = "reactive_inputs"
+
+# Default values for new features
+DEFAULT_REVERSE_DIRECTION: Final = False
+DEFAULT_FREEZE_ON_MANUAL: Final = False
+DEFAULT_BLEND_MODE: Final = BLEND_MODE_AVERAGE
+DEFAULT_TRANSITION_MODE: Final = TRANSITION_MODE_SMOOTH
+DEFAULT_ZONE_COUNT: Final = 1
+
 # Logging
 LOGGER_NAME: Final = f"custom_components.{DOMAIN}"

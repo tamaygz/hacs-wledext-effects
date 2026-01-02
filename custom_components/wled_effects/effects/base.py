@@ -9,11 +9,20 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from wled import WLED
 
-from .const import (
+from ..const import (
+    BLEND_MODE_AVERAGE,
+    DEFAULT_BLEND_MODE,
     DEFAULT_BRIGHTNESS,
+    DEFAULT_FREEZE_ON_MANUAL,
+    DEFAULT_REVERSE_DIRECTION,
     DEFAULT_SEGMENT_ID,
+    DEFAULT_TRANSITION_MODE,
+    DEFAULT_ZONE_COUNT,
+    TRANSITION_MODE_SMOOTH,
 )
-from .errors import EffectExecutionError
+from ..data_mapper import DataMapper, MultiInputBlender, ValueSmoother
+from ..errors import EffectExecutionError
+from ..trigger_manager import TriggerConfig, TriggerManager
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -95,10 +104,41 @@ class WLEDEffectBase:
         self.stop_led: int | None = config.get("stop_led")
         self.brightness: int = config.get("brightness", DEFAULT_BRIGHTNESS)
 
+        # Context-aware features
+        self.reverse_direction: bool = config.get("reverse_direction", DEFAULT_REVERSE_DIRECTION)
+        self.freeze_on_manual: bool = config.get("freeze_on_manual", DEFAULT_FREEZE_ON_MANUAL)
+        self.blend_mode: str = config.get("blend_mode", DEFAULT_BLEND_MODE)
+        self.transition_mode: str = config.get("transition_mode", DEFAULT_TRANSITION_MODE)
+        self.zone_count: int = config.get("zone_count", DEFAULT_ZONE_COUNT)
+        
+        # Reactive inputs - list of entity IDs to monitor
+        self.reactive_inputs: list[str] = config.get("reactive_inputs", [])
+        
+        # Data mapping and smoothing
+        self.data_mapper: DataMapper | None = None
+        self.value_smoother: ValueSmoother | None = None
+        if self.transition_mode == TRANSITION_MODE_SMOOTH:
+            self.value_smoother = ValueSmoother(alpha=0.3)
+        
+        # Trigger management
+        self.trigger_manager: TriggerManager | None = None
+        if config.get("trigger_config"):
+            self.trigger_manager = TriggerManager(hass)
+        
+        # Multi-input blending
+        self.input_blender = MultiInputBlender()
+        
+        # Manual override detection
+        self._manual_override_active = False
+        self._last_manual_check: datetime | None = None
+
         _LOGGER.debug(
-            "Initialized effect %s with config: %s",
+            "Initialized effect %s with config: %s (reverse=%s, zones=%d, reactive_inputs=%d)",
             self.__class__.__name__,
             config,
+            self.reverse_direction,
+            self.zone_count,
+            len(self.reactive_inputs),
         )
 
     async def setup(self) -> bool:
