@@ -152,6 +152,10 @@ class WLEDEffectBase:
             if self.start_led is None or self.stop_led is None:
                 await self._auto_detect_range()
 
+            # Setup trigger manager if configured
+            if self.trigger_manager:
+                await self.trigger_manager.setup()
+
             _LOGGER.info(
                 "Effect %s setup complete. LED range: %d-%d, Segment: %d",
                 self.__class__.__name__,
@@ -192,6 +196,10 @@ class WLEDEffectBase:
             except asyncio.CancelledError:
                 pass
             self._task = None
+
+        # Cleanup trigger manager
+        if self.trigger_manager:
+            await self.trigger_manager.shutdown()
 
         self._start_time = None
 
@@ -313,6 +321,145 @@ class WLEDEffectBase:
             self.start_led = 0
             self.stop_led = 59
 
+    def apply_reverse(self, led_array: list[Any]) -> list[Any]:
+        """Apply reverse direction to LED array.
+        
+        If reverse_direction is enabled, reverses the order of LEDs.
+        This allows effects to run in opposite direction.
+
+        Args:
+            led_array: List of LED values (colors, brightness, etc.)
+
+        Returns:
+            Reversed or original list based on config
+        """
+        if self.reverse_direction:
+            return list(reversed(led_array))
+        return led_array
+
+    def map_to_zone(self, zone_index: int) -> tuple[int, int]:
+        """Map zone index to LED range.
+        
+        Divides the LED strip into zones and returns the LED range for a specific zone.
+
+        Args:
+            zone_index: Zone number (0-based)
+
+        Returns:
+            Tuple of (start_led, stop_led) for the zone
+        """
+        if self.start_led is None or self.stop_led is None:
+            return (0, 0)
+
+        total_leds = (self.stop_led - self.start_led) + 1
+        zone_size = total_leds // self.zone_count
+        
+        zone_start = self.start_led + (zone_index * zone_size)
+        zone_stop = zone_start + zone_size - 1
+        
+        # Ensure last zone covers remaining LEDs
+        if zone_index == self.zone_count - 1:
+            zone_stop = self.stop_led
+
+        return (zone_start, zone_stop)
+
+    def map_value(
+        self,
+        value: float,
+        input_min: float,
+        input_max: float,
+        output_min: float,
+        output_max: float,
+        smooth: bool = False,
+    ) -> float:
+        """Map value from input range to output range.
+
+        Args:
+            value: Input value
+            input_min: Minimum input value
+            input_max: Maximum input value
+            output_min: Minimum output value
+            output_max: Maximum output value
+            smooth: Apply smoothing if enabled
+
+        Returns:
+            Mapped output value
+        """
+        if self.data_mapper is None:
+            self.data_mapper = DataMapper(input_min, input_max, output_min, output_max)
+        else:
+            # Update ranges
+            self.data_mapper.input_min = input_min
+            self.data_mapper.input_max = input_max
+            self.data_mapper.output_min = output_min
+            self.data_mapper.output_max = output_max
+
+        mapped = self.data_mapper.map(value)
+
+        # Apply smoothing if requested and enabled
+        if smooth and self.value_smoother:
+            mapped = self.value_smoother.smooth(mapped)
+
+        return mapped
+
+    def blend_values(self, values: list[float]) -> float:
+        """Blend multiple input values using configured blend mode.
+
+        Args:
+            values: List of values to blend
+
+        Returns:
+            Blended value
+        """
+        return self.input_blender.blend(values, self.blend_mode)
+
+    def interpolate_color(
+        self,
+        color1: tuple[int, int, int],
+        color2: tuple[int, int, int],
+        position: float,
+    ) -> tuple[int, int, int]:
+        """Interpolate between two colors.
+
+        Args:
+            color1: First RGB color
+            color2: Second RGB color
+            position: Position between colors (0.0 to 1.0)
+
+        Returns:
+            Interpolated RGB color
+        """
+        r = int(color1[0] + (color2[0] - color1[0]) * position)
+        g = int(color1[1] + (color2[1] - color1[1]) * position)
+        b = int(color1[2] + (color2[2] - color1[2]) * position)
+        return (r, g, b)
+
+    async def check_manual_override(self) -> bool:
+        """Check if manual override is active.
+        
+        If freeze_on_manual is enabled, checks if WLED device was manually controlled.
+
+        Returns:
+            True if manual override detected and freeze_on_manual is enabled
+        """
+        if not self.freeze_on_manual:
+            return False
+
+        # TODO: Implement actual manual override detection
+        # This would require tracking last commanded state and comparing with device state
+        return self._manual_override_active
+
+    def on_trigger(self, trigger_data: dict[str, Any]) -> None:
+        """Callback for trigger events.
+        
+        Override this method to handle trigger events in effect implementations.
+
+        Args:
+            trigger_data: Data from triggered event
+        """
+        _LOGGER.debug("Trigger callback: %s", trigger_data)
+        # Default implementation - subclasses can override
+
     @property
     def running(self) -> bool:
         """Return running state."""
@@ -391,6 +538,43 @@ class WLEDEffectBase:
                     "minimum": 0,
                     "maximum": 255,
                     "default": DEFAULT_BRIGHTNESS,
+                },
+                "reverse_direction": {
+                    "type": "boolean",
+                    "description": "Reverse LED order (flip effect)",
+                    "default": DEFAULT_REVERSE_DIRECTION,
+                },
+                "freeze_on_manual": {
+                    "type": "boolean",
+                    "description": "Pause effect on manual WLED control",
+                    "default": DEFAULT_FREEZE_ON_MANUAL,
+                },
+                "blend_mode": {
+                    "type": "string",
+                    "description": "How to blend multiple inputs",
+                    "enum": ["average", "max", "min", "multiply", "add"],
+                    "default": DEFAULT_BLEND_MODE,
+                },
+                "transition_mode": {
+                    "type": "string",
+                    "description": "Transition smoothness",
+                    "enum": ["instant", "fade", "smooth"],
+                    "default": DEFAULT_TRANSITION_MODE,
+                },
+                "zone_count": {
+                    "type": "integer",
+                    "description": "Number of zones to divide strip into",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "default": DEFAULT_ZONE_COUNT,
+                },
+                "reactive_inputs": {
+                    "type": "array",
+                    "description": "List of entity IDs to monitor",
+                    "items": {
+                        "type": "string",
+                    },
+                    "default": [],
                 },
             },
             "required": ["effect_name"],
