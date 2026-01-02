@@ -24,6 +24,7 @@ from .const import (
     CONF_STOP_LED,
     CONF_WLED_DEVICE_ID,
     CONF_WLED_HOST,
+    CONF_WLED_UNIQUE_ID,
     DEFAULT_AUTO_START,
     DEFAULT_BRIGHTNESS,
     DEFAULT_ENABLED,
@@ -46,6 +47,7 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize the config flow."""
         self._wled_device_id: str | None = None
+        self._wled_unique_id: str | None = None
         self._wled_host: str | None = None
         self._effect_type: str | None = None
         self._effect_config: dict[str, Any] = {}
@@ -81,7 +83,7 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             elif user_input.get(CONF_WLED_DEVICE_ID):
                 self._wled_device_id = user_input[CONF_WLED_DEVICE_ID]
                 
-                # Get host from WLED config entries
+                # Get host and unique_id from WLED config entries
                 wled_entries = self.hass.config_entries.async_entries(WLED_DOMAIN)
                 device_registry = dr.async_get(self.hass)
                 
@@ -92,6 +94,7 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                     if device and device.id == self._wled_device_id:
                         self._wled_host = entry.data.get("host")
+                        self._wled_unique_id = entry.unique_id
                         break
                 
                 if not self._wled_host:
@@ -218,6 +221,9 @@ class WLEDEffectsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 
                 if self._wled_device_id:
                     data[CONF_WLED_DEVICE_ID] = self._wled_device_id
+                
+                if self._wled_unique_id:
+                    data[CONF_WLED_UNIQUE_ID] = self._wled_unique_id
 
                 options = {
                     CONF_EFFECT_NAME: effect_name,

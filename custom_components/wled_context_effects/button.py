@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, ICON_RUN_ONCE
+from .const import CONF_WLED_UNIQUE_ID, DOMAIN, ICON_RUN_ONCE
 from .coordinator import EffectCoordinator
 from .device import create_device_info
 
@@ -56,11 +56,11 @@ class WLEDEffectRunOnceButton(CoordinatorEntity[EffectCoordinator], ButtonEntity
         self._attr_name = "Run Once"
         
         # Set device info
-        wled_device_id = entry.data.get("wled_device_id", "")
+        wled_unique_id = entry.data.get(CONF_WLED_UNIQUE_ID, "")
         effect_type = entry.data.get("effect_type", "")
         effect_name = entry.options.get("effect_name", "Effect")
         self._attr_device_info = create_device_info(
-            entry, wled_device_id, effect_name, effect_type
+            entry, wled_unique_id, effect_name, effect_type
         )
 
     async def async_press(self) -> None:

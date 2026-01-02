@@ -56,7 +56,7 @@ class StateSyncEffect(WLEDEffectBase):
         self.color_high: tuple[int, int, int] = self._parse_color(
             config.get("color_high", "0,255,0")
         )
-        self.update_interval: float = config.get("update_interval", 0.5)
+        self.update_interval: float = config.get("update_interval", 0.05)
         
         # State source coordinator
         self.state_coordinator: StateSourceCoordinator | None = None
@@ -274,12 +274,30 @@ class StateSyncEffect(WLEDEffectBase):
             "update_interval": {
                 "type": "number",
                 "description": "Update interval in seconds",
-                "minimum": 0.1,
+                "minimum": 0.01,
                 "maximum": 5.0,
-                "default": 0.5,
+                "default": 0.05,
             },
         })
         
         schema["required"].append("state_entity")
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.state_entity = self.config.get("state_entity", "")
+        self.state_attribute = self.config.get("state_attribute")
+        self.min_value = self.config.get("min_value", 0.0)
+        self.max_value = self.config.get("max_value", 100.0)
+        self.animation_mode = self.config.get("animation_mode", "fill")
+        self.color_low = self._parse_color(
+            self.config.get("color_low", "255,0,0")
+        )
+        self.color_high = self._parse_color(
+            self.config.get("color_high", "0,255,0")
+        )
+        self.update_interval = self.config.get("update_interval", 0.05)

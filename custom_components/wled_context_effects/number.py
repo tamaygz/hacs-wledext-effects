@@ -15,6 +15,7 @@ from .const import (
     CONF_SEGMENT_ID,
     CONF_START_LED,
     CONF_STOP_LED,
+    CONF_WLED_UNIQUE_ID,
     DOMAIN,
     ICON_BRIGHTNESS,
     ICON_LED,
@@ -94,11 +95,11 @@ class WLEDEffectNumberBase(CoordinatorEntity[EffectCoordinator], NumberEntity):
         self._attr_icon = icon
         
         # Set device info
-        wled_device_id = entry.data.get("wled_device_id", "")
+        wled_unique_id = entry.data.get(CONF_WLED_UNIQUE_ID, "")
         effect_type = entry.data.get("effect_type", "")
         effect_name = entry.options.get("effect_name", "Effect")
         self._attr_device_info = create_device_info(
-            entry, wled_device_id, effect_name, effect_type
+            entry, wled_unique_id, effect_name, effect_type
         )
 
     async def async_set_native_value(self, value: float) -> None:

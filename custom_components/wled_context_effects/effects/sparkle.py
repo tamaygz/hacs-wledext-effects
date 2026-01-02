@@ -239,7 +239,7 @@ class SparkleEffect(WLEDEffectBase):
             )
         
         # Control update rate
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.03)
 
     @classmethod
     def config_schema(cls) -> dict[str, Any]:
@@ -308,3 +308,23 @@ class SparkleEffect(WLEDEffectBase):
         })
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.sparkle_color = self._parse_color(
+            self.config.get("sparkle_color", "255,255,255")
+        )
+        self.background_color = self._parse_color(
+            self.config.get("background_color", "0,0,20")
+        )
+        self.density = self.config.get("density", 0.1)
+        self.fade_rate = self.config.get("fade_rate", 0.8)
+        self.color_variation = self.config.get("color_variation", False)
+        self.state_entity = self.config.get("state_entity")
+        self.state_attribute = self.config.get("state_attribute")
+        self.state_controls = self.config.get("state_controls", "density")
+        self.state_min = self.config.get("state_min", 0.0)
+        self.state_max = self.config.get("state_max", 100.0)

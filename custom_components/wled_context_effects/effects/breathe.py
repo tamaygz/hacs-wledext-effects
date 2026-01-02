@@ -193,7 +193,7 @@ class BreatheEffect(WLEDEffectBase):
                 # Advance phase based on rate
                 phase_increment = current_rate * 0.05
                 self.phase = (self.phase + phase_increment) % 1.0
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.03)
                 return
             except Exception as err:
                 _LOGGER.warning("Per-LED control failed, falling back to segment mode: %s", err)
@@ -211,11 +211,11 @@ class BreatheEffect(WLEDEffectBase):
         )
         
         # Advance phase based on rate
-        phase_increment = current_rate * 0.05
+        phase_increment = current_rate * 0.03
         self.phase = (self.phase + phase_increment) % 1.0
         
         # Control update rate
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.03)
     
     def _generate_wave_pattern(
         self,
@@ -365,3 +365,22 @@ class BreatheEffect(WLEDEffectBase):
         })
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        self.color = self._parse_color(
+            self.config.get("color", "0,100,255")
+        )
+        self.pulse_rate = self.config.get("pulse_rate", 1.0)
+        self.min_brightness = self.config.get("min_brightness", 10)
+        self.max_brightness = self.config.get("max_brightness", 255)
+        self.easing = self.config.get("easing", "sine")
+        self.wave_pattern = self.config.get("wave_pattern", "traveling")
+        self.state_entity = self.config.get("state_entity")
+        self.state_attribute = self.config.get("state_attribute")
+        self.state_controls = self.config.get("state_controls", "rate")
+        self.state_min = self.config.get("state_min", 0.0)
+        self.state_max = self.config.get("state_max", 100.0)

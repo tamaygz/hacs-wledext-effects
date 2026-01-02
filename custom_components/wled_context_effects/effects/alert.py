@@ -440,10 +440,10 @@ class AlertEffect(WLEDEffectBase):
             )
         
         # Advance phase
-        self.phase += 0.05  # 50ms time step
+        self.phase += 0.03  # 30ms time step
         
         # Control update rate
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.03)
 
     @classmethod
     def config_schema(cls) -> dict[str, Any]:
@@ -555,3 +555,40 @@ class AlertEffect(WLEDEffectBase):
         })
         
         return schema
+    
+    def reload_config(self) -> None:
+        """Reload configuration from self.config dictionary."""
+        super().reload_config()
+        
+        # Reload effect-specific config
+        severity_str = self.config.get("severity", "info")
+        self.severity = Severity(severity_str) if severity_str != "auto" else None
+        self.auto_severity = severity_str == "auto"
+        
+        self.pattern = self.config.get("pattern", "auto")
+        self.flash_rate = self.config.get("flash_rate", 0.0)
+        self.duty_cycle = self.config.get("duty_cycle", 0.5)
+        
+        color_str = self.config.get("color", "auto")
+        self.custom_color = (
+            self._parse_color(color_str) if color_str != "auto" else None
+        )
+        self.secondary_color = (
+            self._parse_color(self.config.get("secondary_color", "255,255,255"))
+            if self.config.get("secondary_color") else None
+        )
+        
+        self.sparkle_count = self.config.get("sparkle_count", 50)
+        self.sparkle_decay = self.config.get("sparkle_decay", 0.85)
+        self.affected_area = self.config.get("affected_area", "full")
+        self.escalate_after = self.config.get("escalate_after", 0.0)
+        self.max_duration = self.config.get("max_duration", 0.0)
+        self.acknowledge_entity = self.config.get("acknowledge_entity")
+        self.state_entity = self.config.get("state_entity")
+        self.state_attribute = self.config.get("state_attribute")
+        self.severity_thresholds = self.config.get("severity_thresholds", {
+            "debug": 10.0,
+            "info": 30.0,
+            "warning": 60.0,
+            "alert": 85.0,
+        })

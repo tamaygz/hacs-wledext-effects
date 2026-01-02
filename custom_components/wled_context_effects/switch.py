@@ -22,6 +22,7 @@ from .const import (
     ATTR_SUCCESS_COUNT,
     ATTR_SUCCESS_RATE,
     CONF_EFFECT_NAME,
+    CONF_WLED_UNIQUE_ID,
     DOMAIN,
     ICON_EFFECT,
     ICON_RUNNING,
@@ -72,10 +73,10 @@ class WLEDEffectSwitch(CoordinatorEntity[EffectCoordinator], SwitchEntity):
         self._attr_name = entry.options.get(CONF_EFFECT_NAME, "Effect")
         
         # Set device info
-        wled_device_id = entry.data.get("wled_device_id", "")
+        wled_unique_id = entry.data.get(CONF_WLED_UNIQUE_ID, "")
         effect_type = entry.data.get("effect_type", "")
         self._attr_device_info = create_device_info(
-            entry, wled_device_id, self._attr_name, effect_type
+            entry, wled_unique_id, self._attr_name, effect_type
         )
 
     @property
