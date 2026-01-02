@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Any
 
 from ..coordinator import StateSourceCoordinator
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
 
     from homeassistant.core import HomeAssistant
 
+_LOGGER = logging.getLogger(__name__)
+
 
 @register_effect
 class ChaseEffect(WLEDEffectBase):
@@ -21,6 +24,8 @@ class ChaseEffect(WLEDEffectBase):
     Creates a Knight Rider / Cylon style scanning effect or a chase pattern
     where a group of LEDs moves along the strip. Direction and speed can be
     controlled by state to represent data flow, activity, or processing.
+    
+    Uses per-LED control for smooth fading tails and gradient effects.
     
     Context-aware features:
     - Chase speed controlled by state (slow to fast)
@@ -36,6 +41,7 @@ class ChaseEffect(WLEDEffectBase):
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client=None,
     ) -> None:
         """Initialize chase effect.
 
@@ -43,8 +49,9 @@ class ChaseEffect(WLEDEffectBase):
             hass: Home Assistant instance
             wled_client: WLED client instance
             config: Effect configuration
+            json_client: Optional JSON API client for per-LED control
         """
-        super().__init__(hass, wled_client, config)
+        super().__init__(hass, wled_client, config, json_client)
         
         # Effect-specific configuration
         self.chase_color: tuple[int, int, int] = self._parse_color(
@@ -219,12 +226,24 @@ class ChaseEffect(WLEDEffectBase):
         # Apply reverse direction if configured (different from chase direction)
         colors = self.apply_reverse(colors)
 
-        # Send to WLED
-        await self.send_wled_command(
-            on=True,
-            brightness=self.brightness,
-            color_primary=self.chase_color,
-        )
+        # Use per-LED control if JSON client available
+        if self.json_client:
+            try:
+                await self.set_individual_leds(colors)
+            except Exception as err:
+                _LOGGER.warning("Per-LED control failed, using fallback: %s", err)
+                await self.send_wled_command(
+                    on=True,
+                    brightness=self.brightness,
+                    color_primary=self.chase_color,
+                )
+        else:
+            # No JSON client - use basic command
+            await self.send_wled_command(
+                on=True,
+                brightness=self.brightness,
+                color_primary=self.chase_color,
+            )
         
         # Update position
         self.position += self.direction

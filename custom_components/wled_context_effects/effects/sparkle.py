@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +15,8 @@ if TYPE_CHECKING:
 
     from homeassistant.core import HomeAssistant
 
+_LOGGER = logging.getLogger(__name__)
+
 
 @register_effect
 class SparkleEffect(WLEDEffectBase):
@@ -22,6 +25,8 @@ class SparkleEffect(WLEDEffectBase):
     Creates a twinkling starfield effect where random pixels light up
     and fade out. Density and speed can be controlled by state to represent
     activity levels, notification counts, or ambient conditions.
+    
+    Uses per-LED control for individual sparkle brightness tracking.
     
     Context-aware features:
     - Sparkle density controlled by state (sparse to dense)
@@ -36,6 +41,7 @@ class SparkleEffect(WLEDEffectBase):
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client=None,
     ) -> None:
         """Initialize sparkle effect.
 
@@ -43,8 +49,9 @@ class SparkleEffect(WLEDEffectBase):
             hass: Home Assistant instance
             wled_client: WLED client instance
             config: Effect configuration
+            json_client: Optional JSON API client for per-LED control
         """
-        super().__init__(hass, wled_client, config)
+        super().__init__(hass, wled_client, config, json_client)
         
         # Effect-specific configuration
         self.sparkle_color: tuple[int, int, int] = self._parse_color(
@@ -212,12 +219,24 @@ class SparkleEffect(WLEDEffectBase):
         # Apply reverse direction if configured
         colors = self.apply_reverse(colors)
 
-        # Send to WLED - use sparkle color as primary
-        await self.send_wled_command(
-            on=True,
-            brightness=self.brightness,
-            color_primary=self.sparkle_color,
-        )
+        # Use per-LED control if JSON client available
+        if self.json_client:
+            try:
+                await self.set_individual_leds(colors)
+            except Exception as err:
+                _LOGGER.warning("Per-LED control failed, using fallback: %s", err)
+                await self.send_wled_command(
+                    on=True,
+                    brightness=self.brightness,
+                    color_primary=self.sparkle_color,
+                )
+        else:
+            # No JSON client - use basic command
+            await self.send_wled_command(
+                on=True,
+                brightness=self.brightness,
+                color_primary=self.sparkle_color,
+            )
         
         # Control update rate
         await asyncio.sleep(0.05)

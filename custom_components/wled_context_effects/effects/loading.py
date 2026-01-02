@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Any
 
 from ..coordinator import StateSourceCoordinator
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
 
     from homeassistant.core import HomeAssistant
 
+_LOGGER = logging.getLogger(__name__)
+
 
 @register_effect
 class LoadingEffect(WLEDEffectBase):
@@ -20,6 +23,8 @@ class LoadingEffect(WLEDEffectBase):
     
     This effect creates a moving "loading bar" or "knight rider" style animation
     with a configurable size and speed.
+    
+    Uses per-LED control for smooth gradient trails.
     """
 
     def __init__(
@@ -27,6 +32,7 @@ class LoadingEffect(WLEDEffectBase):
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client=None,
     ) -> None:
         """Initialize loading effect.
 
@@ -34,8 +40,9 @@ class LoadingEffect(WLEDEffectBase):
             hass: Home Assistant instance
             wled_client: WLED client instance
             config: Effect configuration
+            json_client: Optional JSON API client for per-LED control
         """
-        super().__init__(hass, wled_client, config)
+        super().__init__(hass, wled_client, config, json_client)
         
         # Effect-specific configuration
         self.color: tuple[int, int, int] = self._parse_color(
@@ -166,12 +173,24 @@ class LoadingEffect(WLEDEffectBase):
         # Apply reverse direction if configured
         colors = self.apply_reverse(colors)
 
-        # Send to WLED - set primary color to the main bar color
-        await self.send_wled_command(
-            on=True,
-            brightness=self.brightness,
-            color_primary=self.color,
-        )
+        # Use per-LED control if JSON client available
+        if self.json_client:
+            try:
+                await self.set_individual_leds(colors)
+            except Exception as err:
+                _LOGGER.warning("Per-LED control failed, using fallback: %s", err)
+                await self.send_wled_command(
+                    on=True,
+                    brightness=self.brightness,
+                    color_primary=self.color,
+                )
+        else:
+            # No JSON client - use basic command
+            await self.send_wled_command(
+                on=True,
+                brightness=self.brightness,
+                color_primary=self.color,
+            )
         
         # Update position if not controlled by state
         if state_value is None or self.state_controls != "position":

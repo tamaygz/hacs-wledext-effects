@@ -17,14 +17,18 @@ if TYPE_CHECKING:
 
 @register_effect
 class BreatheEffect(WLEDEffectBase):
-    """Breathe/pulse effect with smooth sine wave brightness modulation.
+    """Breathe/pulse effect with traveling wave patterns.
     
-    Creates a calming breathing or pulsing pattern. Can be triggered by events
-    for notifications/alerts or run continuously for ambient lighting.
+    Creates sophisticated breathing patterns that travel across the LED strip,
+    showcasing the individual addressability with wave effects, gradients, and
+    ripple patterns.
+    
+    Uses per-LED control for traveling waves, gradient pulses, and ripple effects.
     
     Context-aware features:
     - Pulse rate controlled by state (slow calming to fast urgent)
     - Intensity controlled by state (subtle to bright)
+    - Wave patterns (traveling, ripple, gradient, center-out)
     - Color can change based on notification type
     - Trigger-based: pulse N times on events
     """
@@ -34,6 +38,7 @@ class BreatheEffect(WLEDEffectBase):
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client=None,
     ) -> None:
         """Initialize breathe effect.
 
@@ -41,8 +46,10 @@ class BreatheEffect(WLEDEffectBase):
             hass: Home Assistant instance
             wled_client: WLED client instance
             config: Effect configuration
+            json_client: Optional WLEDJsonAPI client for per-LED control
         """
         super().__init__(hass, wled_client, config)
+        self.json_client = json_client
         
         # Effect-specific configuration
         self.color: tuple[int, int, int] = self._parse_color(
@@ -52,6 +59,7 @@ class BreatheEffect(WLEDEffectBase):
         self.min_brightness: int = config.get("min_brightness", 10)
         self.max_brightness: int = config.get("max_brightness", 255)
         self.easing: str = config.get("easing", "sine")  # sine, linear, ease_in_out
+        self.wave_pattern: str = config.get("wave_pattern", "traveling")  # traveling, ripple, gradient, center_out
         
         # State-reactive configuration (optional)
         self.state_entity: str | None = config.get("state_entity")
@@ -140,7 +148,7 @@ class BreatheEffect(WLEDEffectBase):
             return (math.sin(t * 2.0 * math.pi - math.pi / 2.0) + 1.0) / 2.0
 
     async def run_effect(self) -> None:
-        """Render breathe animation."""
+        """Render breathe animation with per-LED wave patterns."""
         # Check manual override
         if await self.check_manual_override():
             await asyncio.sleep(0.1)
@@ -166,16 +174,39 @@ class BreatheEffect(WLEDEffectBase):
                     state_value, 0.0, 1.0, 50.0, 255.0, smooth=True
                 ))
 
-        # Calculate brightness using easing function
+        # Calculate eased value for animation
         eased_value = self._apply_easing(self.phase)
         
-        # Map to brightness range
+        # Generate per-LED colors with wave pattern
+        led_colors = self._generate_wave_pattern(
+            eased_value,
+            current_min_brightness,
+            current_max_brightness,
+        )
+        
+        # Try per-LED control first
+        if self.json_client and led_colors:
+            try:
+                success = await self.set_individual_leds(
+                    led_colors,
+                    brightness=255,  # Individual LED colors already have brightness applied
+                    json_client=self.json_client,
+                )
+                if success:
+                    # Advance phase based on rate
+                    phase_increment = current_rate * 0.05
+                    self.phase = (self.phase + phase_increment) % 1.0
+                    await asyncio.sleep(0.05)
+                    return
+            except Exception as e:
+                self.logger.warning(f"Per-LED control failed, falling back to segment mode: {e}")
+        
+        # Fallback to segment-level control
         current_brightness = int(
             current_min_brightness + 
             (current_max_brightness - current_min_brightness) * eased_value
         )
-
-        # Send to WLED
+        
         await self.send_wled_command(
             on=True,
             brightness=current_brightness,
@@ -183,12 +214,80 @@ class BreatheEffect(WLEDEffectBase):
         )
         
         # Advance phase based on rate
-        # Time step is ~0.05 seconds, so phase increment = rate * 0.05
         phase_increment = current_rate * 0.05
         self.phase = (self.phase + phase_increment) % 1.0
         
         # Control update rate
         await asyncio.sleep(0.05)
+    
+    def _generate_wave_pattern(
+        self,
+        intensity: float,
+        min_brightness: int,
+        max_brightness: int,
+    ) -> list[tuple[int, int, int]]:
+        """Generate per-LED wave breathing pattern.
+        
+        Args:
+            intensity: Current breath intensity (0.0 to 1.0)
+            min_brightness: Minimum brightness value
+            max_brightness: Maximum brightness value
+            
+        Returns:
+            List of RGB tuples for each LED
+        """
+        if not self.led_count:
+            return []
+        
+        colors = []
+        
+        if self.wave_pattern == "traveling":
+            # Traveling wave across strip
+            for i in range(self.led_count):
+                # Create traveling wave
+                wave_pos = (i / self.led_count + self.phase) % 1.0
+                led_intensity = self._apply_easing(wave_pos)
+                brightness = int(min_brightness + (max_brightness - min_brightness) * led_intensity)
+                # Apply brightness to color
+                color = tuple(int(c * brightness / 255) for c in self.color)
+                colors.append(color)
+        
+        elif self.wave_pattern == "ripple":
+            # Ripple from center outward
+            center = self.led_count / 2
+            for i in range(self.led_count):
+                # Distance from center
+                distance = abs(i - center) / center
+                # Create ripple
+                wave_pos = (distance + self.phase) % 1.0
+                led_intensity = self._apply_easing(wave_pos)
+                brightness = int(min_brightness + (max_brightness - min_brightness) * led_intensity)
+                color = tuple(int(c * brightness / 255) for c in self.color)
+                colors.append(color)
+        
+        elif self.wave_pattern == "gradient":
+            # Gradient breathing that shifts
+            for i in range(self.led_count):
+                # Gradient position shifts with phase
+                gradient_pos = ((i / self.led_count) + self.phase * 0.5) % 1.0
+                # Apply overall intensity
+                led_intensity = gradient_pos * intensity
+                brightness = int(min_brightness + (max_brightness - min_brightness) * led_intensity)
+                color = tuple(int(c * brightness / 255) for c in self.color)
+                colors.append(color)
+        
+        elif self.wave_pattern == "center_out":
+            # Breathe from center outward
+            center = self.led_count / 2
+            for i in range(self.led_count):
+                distance = abs(i - center) / center
+                # Sync with phase but attenuate by distance
+                led_intensity = intensity * (1.0 - distance * 0.5)
+                brightness = int(min_brightness + (max_brightness - min_brightness) * led_intensity)
+                color = tuple(int(c * brightness / 255) for c in self.color)
+                colors.append(color)
+        
+        return colors
 
     @classmethod
     def config_schema(cls) -> dict[str, Any]:
@@ -232,6 +331,12 @@ class BreatheEffect(WLEDEffectBase):
                 "description": "Easing function for breathing pattern",
                 "enum": ["sine", "linear", "ease_in_out"],
                 "default": "sine",
+            },
+            "wave_pattern": {
+                "type": "string",
+                "description": "Wave pattern mode for per-LED control",
+                "enum": ["traveling", "ripple", "gradient", "center_out"],
+                "default": "traveling",
             },
             "state_entity": {
                 "type": "string",

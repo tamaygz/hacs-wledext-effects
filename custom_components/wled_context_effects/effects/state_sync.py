@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Any
 
 from ..coordinator import StateSourceCoordinator
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
 
     from homeassistant.core import HomeAssistant
 
+_LOGGER = logging.getLogger(__name__)
+
 
 @register_effect
 class StateSyncEffect(WLEDEffectBase):
@@ -20,6 +23,8 @@ class StateSyncEffect(WLEDEffectBase):
     
     This effect monitors a Home Assistant entity's state and represents it
     visually on the LED strip. Supports multiple animation modes.
+    
+    Uses per-LED control for accurate fill visualizations.
     """
 
     def __init__(
@@ -27,6 +32,7 @@ class StateSyncEffect(WLEDEffectBase):
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client=None,
     ) -> None:
         """Initialize state sync effect.
 
@@ -34,8 +40,9 @@ class StateSyncEffect(WLEDEffectBase):
             hass: Home Assistant instance
             wled_client: WLED client instance
             config: Effect configuration
+            json_client: Optional JSON API client for per-LED control
         """
-        super().__init__(hass, wled_client, config)
+        super().__init__(hass, wled_client, config, json_client)
         
         # Effect-specific configuration
         self.state_entity: str = config.get("state_entity", "")
@@ -197,12 +204,24 @@ class StateSyncEffect(WLEDEffectBase):
         # Apply reverse if configured
         colors = self.apply_reverse(colors)
         
-        # Send to WLED
-        await self.send_wled_command(
-            on=True,
-            brightness=self.brightness,
-            color_primary=current_color,
-        )
+        # Use per-LED control if JSON client available
+        if self.json_client:
+            try:
+                await self.set_individual_leds(colors)
+            except Exception as err:
+                _LOGGER.warning("Per-LED control failed, using fallback: %s", err)
+                await self.send_wled_command(
+                    on=True,
+                    brightness=self.brightness,
+                    color_primary=current_color,
+                )
+        else:
+            # No JSON client - use basic command
+            await self.send_wled_command(
+                on=True,
+                brightness=self.brightness,
+                color_primary=current_color,
+            )
         
         # Control update rate
         await asyncio.sleep(self.update_interval)

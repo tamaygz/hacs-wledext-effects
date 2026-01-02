@@ -16,10 +16,20 @@ if TYPE_CHECKING:
 
 @register_effect
 class SegmentFadeEffect(WLEDEffectBase):
-    """Segment fade effect that smoothly transitions between two colors.
+    """Gradient fade effect with traveling color waves.
     
-    This effect fades the entire LED segment between two configurable colors
-    at a configurable speed.
+    Creates sophisticated color transitions across the LED strip using gradient
+    waves and color morphing. Perfect for ambient lighting that showcases the
+    individual addressability of each LED.
+    
+    Uses per-LED control for gradient waves, color morphing, and traveling patterns.
+    
+    Context-aware features:
+    - Wave patterns (gradient, traveling, alternating, random)
+    - Speed controlled by state
+    - Position/phase controlled by state
+    - Smooth color transitions across the strip
+    - Multiple wave patterns and effects
     """
 
     def __init__(
@@ -27,6 +37,7 @@ class SegmentFadeEffect(WLEDEffectBase):
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client=None,
     ) -> None:
         """Initialize segment fade effect.
 
@@ -34,8 +45,10 @@ class SegmentFadeEffect(WLEDEffectBase):
             hass: Home Assistant instance
             wled_client: WLED client instance
             config: Effect configuration
+            json_client: Optional WLEDJsonAPI client for per-LED control
         """
         super().__init__(hass, wled_client, config)
+        self.json_client = json_client
         
         # Effect-specific configuration
         self.color1: tuple[int, int, int] = self._parse_color(
@@ -46,6 +59,7 @@ class SegmentFadeEffect(WLEDEffectBase):
         )
         self.transition_speed: float = config.get("transition_speed", 2.0)
         self.steps: int = config.get("steps", 50)
+        self.pattern_mode: str = config.get("pattern_mode", "gradient")  # gradient, traveling, wave, alternating
         
         # State-reactive configuration (optional)
         self.state_entity: str | None = config.get("state_entity")
@@ -138,7 +152,7 @@ class SegmentFadeEffect(WLEDEffectBase):
         )
 
     async def run_effect(self) -> None:
-        """Render fade animation."""
+        """Render gradient fade animation with per-LED control."""
         # Check manual override
         if await self.check_manual_override():
             await asyncio.sleep(0.1)
@@ -167,25 +181,97 @@ class SegmentFadeEffect(WLEDEffectBase):
                 self.direction = 1
                 self.current_step = 0
         
-        # Interpolate color using base class method
-        current_color = self.interpolate_color(self.color1, self.color2, position)
+        # Generate per-LED colors based on pattern mode
+        led_colors = self._generate_pattern(position)
         
-        # Send to WLED
+        # Try per-LED control first
+        if self.json_client and led_colors:
+            try:
+                success = await self.set_individual_leds(
+                    led_colors,
+                    brightness=self.brightness,
+                    json_client=self.json_client,
+                )
+                if success:
+                    # Control fade speed
+                    speed_multiplier = 1.0
+                    if state_value is not None and self.state_controls == "speed":
+                        speed_multiplier = self.map_value(
+                            state_value, 0.0, 1.0, 0.1, 10.0, smooth=True
+                        )
+                    await asyncio.sleep((self.transition_speed / self.steps) / speed_multiplier)
+                    return
+            except Exception as e:
+                self.logger.warning(f"Per-LED control failed, falling back to segment mode: {e}")
+        
+        # Fallback to segment-level control
+        current_color = self.interpolate_color(self.color1, self.color2, position)
         await self.send_wled_command(
             on=True,
             brightness=self.brightness,
             color_primary=current_color,
         )
         
-        # Control fade speed (modulate by state if configured)
+        # Control fade speed
         speed_multiplier = 1.0
         if state_value is not None and self.state_controls == "speed":
-            # Map state to speed multiplier (0.1 to 10.0)
             speed_multiplier = self.map_value(
                 state_value, 0.0, 1.0, 0.1, 10.0, smooth=True
             )
         
         await asyncio.sleep((self.transition_speed / self.steps) / speed_multiplier)
+    
+    def _generate_pattern(self, position: float) -> list[tuple[int, int, int]]:
+        """Generate per-LED color pattern based on mode.
+        
+        Args:
+            position: Animation position (0.0 to 1.0)
+            
+        Returns:
+            List of RGB tuples for each LED
+        """
+        if not self.led_count:
+            return []
+        
+        colors = []
+        
+        if self.pattern_mode == "gradient":
+            # Static gradient across strip that morphs between color1 and color2
+            for i in range(self.led_count):
+                led_position = i / max(1, self.led_count - 1)
+                # Interpolate base gradient
+                base_color = self.interpolate_color(self.color1, self.color2, led_position)
+                # Morph the gradient based on animation position
+                final_color = self.interpolate_color(base_color, self.color2 if led_position < 0.5 else self.color1, position)
+                colors.append(final_color)
+        
+        elif self.pattern_mode == "traveling":
+            # Traveling gradient wave
+            wave_length = self.led_count / 2  # Half strip width
+            for i in range(self.led_count):
+                # Calculate position in wave
+                wave_pos = ((i + position * self.led_count) % self.led_count) / self.led_count
+                color = self.interpolate_color(self.color1, self.color2, wave_pos)
+                colors.append(color)
+        
+        elif self.pattern_mode == "wave":
+            # Sine wave pattern
+            import math
+            for i in range(self.led_count):
+                # Create sine wave across strip
+                wave_value = (math.sin((i / self.led_count + position) * 2 * math.pi) + 1.0) / 2.0
+                color = self.interpolate_color(self.color1, self.color2, wave_value)
+                colors.append(color)
+        
+        elif self.pattern_mode == "alternating":
+            # Alternating segments that shift
+            segment_size = max(1, self.led_count // 8)
+            for i in range(self.led_count):
+                segment_index = (i // segment_size + int(position * 16)) % 2
+                color = self.color1 if segment_index == 0 else self.color2
+                colors.append(color)
+        
+        return colors
 
     @classmethod
     def config_schema(cls) -> dict[str, Any]:
@@ -221,6 +307,12 @@ class SegmentFadeEffect(WLEDEffectBase):
                 "minimum": 10,
                 "maximum": 200,
                 "default": 50,
+            },
+            "pattern_mode": {
+                "type": "string",
+                "description": "Gradient pattern mode",
+                "enum": ["gradient", "traveling", "wave", "alternating"],
+                "default": "gradient",
             },
             "state_entity": {
                 "type": "string",

@@ -326,11 +326,6 @@ For existing effects to add per-LED control:
 - [WLED Segment API](https://kno.wled.ge/features/segments/)
 - [aiohttp Documentation](https://docs.aiohttp.org/)
 
-## Credits
-
-- Implementation: GitHub Copilot
-- WLED Project: Aircoookie
-- Home Assistant: Core Team
 
 ---
 

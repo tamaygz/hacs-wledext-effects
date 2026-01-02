@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 import time
 from enum import Enum
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     from wled import WLED
 
     from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class Severity(Enum):
@@ -65,6 +68,8 @@ class AlertEffect(WLEDEffectBase):
     flash patterns, and attention-grabbing techniques. Perfect for alerts,
     warnings, and status notifications.
     
+    Uses per-LED control for sparkle_burst pattern and targeted area effects.
+    
     Context-aware features:
     - Auto-severity from state value (thresholds)
     - Acknowledgment support (stops when acknowledged)
@@ -80,6 +85,7 @@ class AlertEffect(WLEDEffectBase):
         hass: HomeAssistant,
         wled_client: WLED,
         config: dict[str, Any],
+        json_client=None,
     ) -> None:
         """Initialize alert effect.
 
@@ -87,8 +93,9 @@ class AlertEffect(WLEDEffectBase):
             hass: Home Assistant instance
             wled_client: WLED client instance
             config: Effect configuration
+            json_client: Optional JSON API client for per-LED control
         """
-        super().__init__(hass, wled_client, config)
+        super().__init__(hass, wled_client, config, json_client)
         
         # Severity configuration
         severity_str = config.get("severity", "info")
@@ -413,12 +420,24 @@ class AlertEffect(WLEDEffectBase):
         # Apply reverse direction if configured
         colors = self.apply_reverse(colors)
 
-        # Send to WLED
-        await self.send_wled_command(
-            on=True,
-            brightness=self.brightness,
-            color_primary=config["color"],
-        )
+        # Use per-LED control if JSON client available
+        if self.json_client:
+            try:
+                await self.set_individual_leds(colors)
+            except Exception as err:
+                _LOGGER.warning("Per-LED control failed, using fallback: %s", err)
+                await self.send_wled_command(
+                    on=True,
+                    brightness=self.brightness,
+                    color_primary=config["color"],
+                )
+        else:
+            # No JSON client - use basic command
+            await self.send_wled_command(
+                on=True,
+                brightness=self.brightness,
+                color_primary=config["color"],
+            )
         
         # Advance phase
         self.phase += 0.05  # 50ms time step
