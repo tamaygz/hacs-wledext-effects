@@ -198,8 +198,8 @@ class SegmentFadeEffect(WLEDEffectBase):
                     )
                 await asyncio.sleep((self.transition_speed / self.steps) / speed_multiplier)
                 return
-            except Exception as e:
-                _LOGGER.warning("Per-LED control failed, falling back to segment mode: %s", e)
+            except Exception as err:
+                _LOGGER.warning("Per-LED control failed, falling back to segment mode: %s", err)
         
         # Fallback to segment-level control
         current_color = self.interpolate_color(self.color1, self.color2, position)

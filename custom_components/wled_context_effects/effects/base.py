@@ -286,11 +286,16 @@ class WLEDEffectBase:
             self._success_count += 1
             return True
 
-        except Exception as err:
-            _LOGGER.error("WLED command failed: %s", err)
+        except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
+            _LOGGER.error("WLED command connection error: %s", err)
             self._last_error = str(err)
             self._failure_count += 1
-            raise EffectExecutionError(f"WLED command failed: {err}") from err
+            raise EffectExecutionError(f"WLED command connection error: {err}") from err
+        except (ValueError, TypeError, AttributeError) as err:
+            _LOGGER.error("WLED command data error: %s", err)
+            self._last_error = str(err)
+            self._failure_count += 1
+            raise EffectExecutionError(f"WLED command data error: {err}") from err
 
     async def set_individual_leds(
         self,
@@ -488,9 +493,12 @@ class WLEDEffectBase:
                 self.start_led = 0
                 self.stop_led = 59  # Default fallback
 
-        except Exception as err:
-            _LOGGER.error("Failed to auto-detect LED range: %s", err)
-            # Use sensible defaults
+        except (AttributeError, KeyError, TypeError) as err:
+            _LOGGER.debug("Device info access error during LED detection: %s, using defaults", err)
+            self.start_led = 0
+            self.stop_led = 59
+        except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
+            _LOGGER.debug("Connection error during LED detection: %s, using defaults", err)
             self.start_led = 0
             self.stop_led = 59
 

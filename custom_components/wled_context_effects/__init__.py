@@ -1,6 +1,7 @@
 """The WLED Effects integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -18,7 +19,7 @@ from .const import (
 )
 from .coordinator import EffectCoordinator
 from .effects import EFFECT_REGISTRY
-from .errors import ConnectionError as WLEDConnectionError, EffectNotFoundError
+from .errors import ConnectionError as WLEDConnectionError, EffectExecutionError, EffectNotFoundError
 from .wled_manager import WLEDConnectionManager
 
 if TYPE_CHECKING:

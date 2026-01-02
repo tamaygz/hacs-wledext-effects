@@ -195,8 +195,8 @@ class BreatheEffect(WLEDEffectBase):
                 self.phase = (self.phase + phase_increment) % 1.0
                 await asyncio.sleep(0.05)
                 return
-            except Exception as e:
-                _LOGGER.warning("Per-LED control failed, falling back to segment mode: %s", e)
+            except Exception as err:
+                _LOGGER.warning("Per-LED control failed, falling back to segment mode: %s", err)
         
         # Fallback to segment-level control
         current_brightness = int(
