@@ -239,7 +239,7 @@ class SparkleEffect(WLEDEffectBase):
             )
         
         # Control update rate
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.03)
 
     @classmethod
     def config_schema(cls) -> dict[str, Any]:

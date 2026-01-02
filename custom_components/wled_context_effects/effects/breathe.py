@@ -193,7 +193,7 @@ class BreatheEffect(WLEDEffectBase):
                 # Advance phase based on rate
                 phase_increment = current_rate * 0.05
                 self.phase = (self.phase + phase_increment) % 1.0
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.03)
                 return
             except Exception as err:
                 _LOGGER.warning("Per-LED control failed, falling back to segment mode: %s", err)
@@ -211,11 +211,11 @@ class BreatheEffect(WLEDEffectBase):
         )
         
         # Advance phase based on rate
-        phase_increment = current_rate * 0.05
+        phase_increment = current_rate * 0.03
         self.phase = (self.phase + phase_increment) % 1.0
         
         # Control update rate
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.03)
     
     def _generate_wave_pattern(
         self,

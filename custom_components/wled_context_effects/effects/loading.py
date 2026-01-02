@@ -49,7 +49,7 @@ class LoadingEffect(WLEDEffectBase):
             config.get("color", "0,255,0")
         )
         self.bar_size: int = config.get("bar_size", 5)
-        self.speed: float = config.get("speed", 0.1)
+        self.speed: float = config.get("speed", 0.03)
         self.trail_fade: bool = config.get("trail_fade", True)
         
         # State-reactive configuration (optional)
@@ -242,7 +242,7 @@ class LoadingEffect(WLEDEffectBase):
                 "description": "Movement speed (delay between steps in seconds)",
                 "minimum": 0.01,
                 "maximum": 1.0,
-                "default": 0.1,
+                "default": 0.03,
             },
             "trail_fade": {
                 "type": "boolean",

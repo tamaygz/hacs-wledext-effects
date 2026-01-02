@@ -61,7 +61,7 @@ class ChaseEffect(WLEDEffectBase):
             config.get("background_color", "0,0,0")
         )
         self.chase_length: int = config.get("chase_length", 5)  # LEDs in chase
-        self.speed: float = config.get("speed", 0.05)  # Delay between steps
+        self.speed: float = config.get("speed", 0.02)  # Delay between steps
         self.fade_tail: bool = config.get("fade_tail", True)  # Fade the tail
         self.bounce: bool = config.get("bounce", True)  # Bounce at ends
         self.scan_mode: bool = config.get("scan_mode", False)  # True = scanner (fade from center)
@@ -300,7 +300,7 @@ class ChaseEffect(WLEDEffectBase):
                 "description": "Movement speed (delay between steps)",
                 "minimum": 0.001,
                 "maximum": 1.0,
-                "default": 0.05,
+                "default": 0.02,
             },
             "fade_tail": {
                 "type": "boolean",

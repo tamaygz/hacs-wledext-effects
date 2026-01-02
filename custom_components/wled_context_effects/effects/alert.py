@@ -440,10 +440,10 @@ class AlertEffect(WLEDEffectBase):
             )
         
         # Advance phase
-        self.phase += 0.05  # 50ms time step
+        self.phase += 0.03  # 30ms time step
         
         # Control update rate
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.03)
 
     @classmethod
     def config_schema(cls) -> dict[str, Any]:

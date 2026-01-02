@@ -56,7 +56,7 @@ class StateSyncEffect(WLEDEffectBase):
         self.color_high: tuple[int, int, int] = self._parse_color(
             config.get("color_high", "0,255,0")
         )
-        self.update_interval: float = config.get("update_interval", 0.5)
+        self.update_interval: float = config.get("update_interval", 0.05)
         
         # State source coordinator
         self.state_coordinator: StateSourceCoordinator | None = None
@@ -274,9 +274,9 @@ class StateSyncEffect(WLEDEffectBase):
             "update_interval": {
                 "type": "number",
                 "description": "Update interval in seconds",
-                "minimum": 0.1,
+                "minimum": 0.01,
                 "maximum": 5.0,
-                "default": 0.5,
+                "default": 0.05,
             },
         })
         

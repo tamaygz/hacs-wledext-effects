@@ -59,8 +59,8 @@ class SegmentFadeEffect(WLEDEffectBase):
         self.color2: tuple[int, int, int] = self._parse_color(
             config.get("color2", "0,0,255")
         )
-        self.transition_speed: float = config.get("transition_speed", 2.0)
-        self.steps: int = config.get("steps", 50)
+        self.transition_speed: float = config.get("transition_speed", 1.0)
+        self.steps: int = config.get("steps", 100)
         self.pattern_mode: str = config.get("pattern_mode", "gradient")  # gradient, traveling, wave, alternating
         
         # State-reactive configuration (optional)
@@ -299,14 +299,14 @@ class SegmentFadeEffect(WLEDEffectBase):
                 "description": "Transition duration in seconds",
                 "minimum": 0.5,
                 "maximum": 10.0,
-                "default": 2.0,
+                "default": 1.0,
             },
             "steps": {
                 "type": "integer",
                 "description": "Number of steps in transition",
                 "minimum": 10,
                 "maximum": 200,
-                "default": 50,
+                "default": 100,
             },
             "pattern_mode": {
                 "type": "string",

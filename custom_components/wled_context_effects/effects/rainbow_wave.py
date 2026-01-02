@@ -45,7 +45,7 @@ class RainbowWaveEffect(WLEDEffectBase):
         # Effect-specific configuration
         self.wave_speed: float = config.get("wave_speed", 1.0)
         self.wave_length: int = config.get("wave_length", 60)
-        self.update_interval: float = config.get("update_interval", 0.05)
+        self.update_interval: float = config.get("update_interval", 0.03)
         
         # State-reactive configuration (optional)
         self.state_entity: str | None = config.get("state_entity")
@@ -205,7 +205,7 @@ class RainbowWaveEffect(WLEDEffectBase):
                 "description": "Time between updates in seconds",
                 "minimum": 0.01,
                 "maximum": 1.0,
-                "default": 0.05,
+                "default": 0.03,
             },
             "state_entity": {
                 "type": "string",
