@@ -227,15 +227,18 @@ class SegmentFadeEffect(WLEDEffectBase):
         Returns:
             List of RGB tuples for each LED
         """
-        if not self.led_count:
+        # Calculate LED count
+        led_count = (self.stop_led - self.start_led) + 1 if self.stop_led and self.start_led is not None else 0
+        
+        if not led_count:
             return []
         
         colors = []
         
         if self.pattern_mode == "gradient":
             # Static gradient across strip that morphs between color1 and color2
-            for i in range(self.led_count):
-                led_position = i / max(1, self.led_count - 1)
+            for i in range(led_count):
+                led_position = i / max(1, led_count - 1)
                 # Interpolate base gradient
                 base_color = self.interpolate_color(self.color1, self.color2, led_position)
                 # Morph the gradient based on animation position
@@ -244,26 +247,26 @@ class SegmentFadeEffect(WLEDEffectBase):
         
         elif self.pattern_mode == "traveling":
             # Traveling gradient wave
-            wave_length = self.led_count / 2  # Half strip width
-            for i in range(self.led_count):
+            wave_length = led_count / 2  # Half strip width
+            for i in range(led_count):
                 # Calculate position in wave
-                wave_pos = ((i + position * self.led_count) % self.led_count) / self.led_count
+                wave_pos = ((i + position * led_count) % led_count) / led_count
                 color = self.interpolate_color(self.color1, self.color2, wave_pos)
                 colors.append(color)
         
         elif self.pattern_mode == "wave":
             # Sine wave pattern
             import math
-            for i in range(self.led_count):
+            for i in range(led_count):
                 # Create sine wave across strip
-                wave_value = (math.sin((i / self.led_count + position) * 2 * math.pi) + 1.0) / 2.0
+                wave_value = (math.sin((i / led_count + position) * 2 * math.pi) + 1.0) / 2.0
                 color = self.interpolate_color(self.color1, self.color2, wave_value)
                 colors.append(color)
         
         elif self.pattern_mode == "alternating":
             # Alternating segments that shift
-            segment_size = max(1, self.led_count // 8)
-            for i in range(self.led_count):
+            segment_size = max(1, led_count // 8)
+            for i in range(led_count):
                 segment_index = (i // segment_size + int(position * 16)) % 2
                 color = self.color1 if segment_index == 0 else self.color2
                 colors.append(color)

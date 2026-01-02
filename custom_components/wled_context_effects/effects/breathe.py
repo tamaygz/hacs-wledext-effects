@@ -233,16 +233,19 @@ class BreatheEffect(WLEDEffectBase):
         Returns:
             List of RGB tuples for each LED
         """
-        if not self.led_count:
+        # Calculate LED count
+        led_count = (self.stop_led - self.start_led) + 1 if self.stop_led and self.start_led is not None else 0
+        
+        if not led_count:
             return []
         
         colors = []
         
         if self.wave_pattern == "traveling":
             # Traveling wave across strip
-            for i in range(self.led_count):
+            for i in range(led_count):
                 # Create traveling wave
-                wave_pos = (i / self.led_count + self.phase) % 1.0
+                wave_pos = (i / led_count + self.phase) % 1.0
                 led_intensity = self._apply_easing(wave_pos)
                 brightness = int(min_brightness + (max_brightness - min_brightness) * led_intensity)
                 # Apply brightness to color
@@ -251,8 +254,8 @@ class BreatheEffect(WLEDEffectBase):
         
         elif self.wave_pattern == "ripple":
             # Ripple from center outward
-            center = self.led_count / 2
-            for i in range(self.led_count):
+            center = led_count / 2
+            for i in range(led_count):
                 # Distance from center
                 distance = abs(i - center) / center
                 # Create ripple
@@ -264,9 +267,9 @@ class BreatheEffect(WLEDEffectBase):
         
         elif self.wave_pattern == "gradient":
             # Gradient breathing that shifts
-            for i in range(self.led_count):
+            for i in range(led_count):
                 # Gradient position shifts with phase
-                gradient_pos = ((i / self.led_count) + self.phase * 0.5) % 1.0
+                gradient_pos = ((i / led_count) + self.phase * 0.5) % 1.0
                 # Apply overall intensity
                 led_intensity = gradient_pos * intensity
                 brightness = int(min_brightness + (max_brightness - min_brightness) * led_intensity)
@@ -275,8 +278,8 @@ class BreatheEffect(WLEDEffectBase):
         
         elif self.wave_pattern == "center_out":
             # Breathe from center outward
-            center = self.led_count / 2
-            for i in range(self.led_count):
+            center = led_count / 2
+            for i in range(led_count):
                 distance = abs(i - center) / center
                 # Sync with phase but attenuate by distance
                 led_intensity = intensity * (1.0 - distance * 0.5)
