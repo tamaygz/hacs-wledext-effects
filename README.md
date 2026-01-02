@@ -9,7 +9,9 @@ A modern, modular Home Assistant integration for managing advanced WLED effects 
 ## ✨ Features
 
 ### Core Features
-- **🎨 Advanced Effects**: 4 pre-built effects (Rainbow Wave, Segment Fade, Loading, State Sync) with extensible framework
+- **🎨 Advanced Effects**: 8 pre-built effects with extensible framework
+  - **Classic**: Rainbow Wave, Segment Fade, Loading, State Sync
+  - **🆕 v2.1**: Breathe/Pulse, Meter/Gauge, Sparkle/Twinkle, Chase/Scanner
 - **🔄 Real-time State Sync**: Monitor Home Assistant entities and visualize their states on LEDs
 - **📊 Live Monitoring**: Real-time stats tracking (frame rate, latency, error rate)
 - **🛠️ Full Entity Controls**: Switch, Number, Select, Sensor, and Button entities for complete effect management
@@ -27,8 +29,9 @@ A modern, modular Home Assistant integration for managing advanced WLED effects 
 - **🎨 Blend Modes**: Combine multiple inputs (average, max, min, multiply, add)
 - **🔀 Smooth Transitions**: Exponential smoothing eliminates jittery sensor effects
 - **✋ Manual Override Detection**: Automatically pause automation on manual WLED control (like Adaptive Lighting)
+- **🎚️ State-Reactive Effects**: All effects can optionally react to entity states (speed, position, size, etc.)
 
-**[📖 See Full Context-Aware Documentation](CONTEXT_AWARE_FEATURES.md)**
+**[📖 Context-Aware Documentation](CONTEXT_AWARE_FEATURES.md)** | **[📖 State-Reactive Effects Guide](STATE_REACTIVE_EFFECTS.md)** | **[📖 New Effects Guide (v2.1)](NEW_EFFECTS_GUIDE.md)**
 
 ## 📋 Requirements
 
@@ -122,6 +125,71 @@ data:
     color_high: "255,0,0"     # Red for high
     transition_mode: smooth   # Smooth sensor readings
     reverse_direction: false
+```
+
+### 🆕 5. Breathe/Pulse (v2.1)
+Smooth breathing/pulsing pattern for notifications and alerts.
+
+```yaml
+service: wled_effects.start_effect
+data:
+  effect_name: breathe
+  config:
+    color: "0,100,255"
+    pulse_rate: 1.0           # Cycles per second
+    state_entity: sensor.notification_priority
+    state_controls: "rate"    # Faster pulse = higher priority
+    easing: "sine"            # Natural breathing
+```
+
+### 🆕 6. Meter/Gauge (v2.1)
+Data visualization with threshold-based colors.
+
+```yaml
+service: wled_effects.start_effect
+data:
+  effect_name: meter
+  config:
+    state_entity: sensor.cpu_usage
+    fill_mode: "bottom_up"    # bottom_up, center_out, bidirectional
+    color_low: "0,255,0"      # Green
+    color_medium: "255,255,0" # Yellow
+    color_high: "255,0,0"     # Red
+    threshold_medium: 50
+    threshold_high: 80
+    show_peak: true
+```
+
+### 🆕 7. Sparkle/Twinkle (v2.1)
+Activity indicator with random twinkling pixels.
+
+```yaml
+service: wled_effects.start_effect
+data:
+  effect_name: sparkle
+  config:
+    sparkle_color: "255,255,255"
+    density: 0.1              # 0.0 to 1.0
+    state_entity: sensor.network_activity
+    state_controls: "density" # More activity = more sparkles
+    color_variation: true
+```
+
+### 🆕 8. Chase/Scanner (v2.1)
+Knight Rider / Cylon style chase pattern.
+
+```yaml
+service: wled_effects.start_effect
+data:
+  effect_name: chase
+  config:
+    chase_color: "255,0,0"
+    chase_length: 10
+    scan_mode: true           # KITT scanner style
+    state_entity: sensor.processing_queue
+    state_controls: "speed"   # Faster chase = more items
+    fade_tail: true
+    bounce: true
 ```
 
 ## 🎯 Advanced Use Cases
