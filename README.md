@@ -228,10 +228,6 @@ Contributions welcome!
 - **Bug Reports**: Help us improve quality
 - **Feature Requests**: Suggest new capabilities
 
-## 📝 License
-
-MIT License - See [LICENSE](LICENSE) file for details
-
 ## 🙏 Acknowledgments
 
 - **Home Assistant Core Team**
@@ -254,6 +250,5 @@ MIT License - See [LICENSE](LICENSE) file for details
 **Made with ❤️ for the Home Assistant community**
 
 **Repository**: [hacs-wledext-effects](https://github.com/tamaygz/hacs-wledext-effects)  
-**Status**: ✅ Production Ready  
 **Version**: 1.0.0
 
