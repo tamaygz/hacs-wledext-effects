@@ -148,18 +148,26 @@ class RainbowWaveEffect(WLEDEffectBase):
         # Apply reverse direction if configured
         colors = self.apply_reverse(colors)
 
-        # Send colors to WLED device
-        # For individual LED control, we need to set each LED
-        leds_dict = {
-            self.start_led + i: colors[i]
-            for i in range(led_count)
-        }
-        
-        await self.send_wled_command(
-            on=True,
-            brightness=self.brightness,
-            color_primary=colors[0] if colors else (255, 0, 0),  # Fallback
-        )
+        # Use per-LED control if JSON client available
+        if self.json_client:
+            try:
+                await self.set_individual_leds(colors)
+            except Exception as err:
+                # Fallback to basic command if per-LED fails
+                primary_color = colors[0] if colors else (255, 0, 0)
+                await self.send_wled_command(
+                    on=True,
+                    brightness=self.brightness,
+                    color_primary=primary_color,
+                )
+        else:
+            # No JSON client - use basic command with first color
+            primary_color = colors[0] if colors else (255, 0, 0)
+            await self.send_wled_command(
+                on=True,
+                brightness=self.brightness,
+                color_primary=primary_color,
+            )
 
         # Advance the wave
         self.color_offset = (self.color_offset + (current_speed / 100.0)) % 1.0
