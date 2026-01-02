@@ -10,6 +10,7 @@ Transform your WLED LED strips into smart, context-aware displays that react to 
 
 - **🎨 9 Built-in Effects**: From ambient rainbows to attention-grabbing alerts
 - **🔄 Context-Aware**: React to sensors, states, and events in real-time
+- **💡 Per-LED Control**: True pixel-level control with automatic batching
 - **🎯 Multi-Zone Control**: Divide strips into independent zones
 - **⚡ Trigger System**: Event-based effect modulation
 - **📊 Data Visualization**: Transform sensor data into LED patterns
@@ -176,6 +177,7 @@ config:
 - **[Effects Reference](docs/EFFECTS_REFERENCE.md)** - All 9 effects documented
 
 ### Advanced
+- **[Per-LED Control](docs/README_PER_LED_CONTROL.md)** - Pixel-perfect control via JSON API
 - **[Context-Aware Features](docs/CONTEXT_AWARE_FEATURES.md)** - Smart home integration
 - **[Advanced Guide](docs/ADVANCED_GUIDE.md)** - Triggers, automation, optimization
 - **[Services API](docs/SERVICES_API.md)** - Service reference
