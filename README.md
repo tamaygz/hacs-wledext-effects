@@ -4,11 +4,11 @@
 [![GitHub Release](https://img.shields.io/github/release/tamaygz/hacs-wledext-effects.svg)](https://github.com/tamaygz/hacs-wledext-effects/releases)
 [![License](https://img.shields.io/github/license/tamaygz/hacs-wledext-effects.svg)](LICENSE)
 
-Transform your WLED LED strips into smart, context-aware displays that react to your Home Assistant state! Create stunning visualizations, notifications, and ambient lighting with 9 powerful effects and advanced programmability.
+Transform your WLED LED strips into smart, context-aware displays that react to your Home Assistant state! Create stunning visualizations, notifications, and ambient lighting with 11 powerful effects and advanced programmability.
 
 ## ✨ Key Features
 
-- **🎨 9 Built-in Effects**: From ambient rainbows to attention-grabbing alerts
+- **🎨 11 Built-in Effects**: From ambient rainbows to attention-grabbing alerts and scrolling 2D text
 - **🔄 Context-Aware**: React to sensors, states, and events in real-time
 - **💡 Per-LED Control**: True pixel-level control with automatic batching
 - **🎯 Multi-Zone Control**: Divide strips into independent zones
@@ -72,6 +72,8 @@ target:
 | **Sparkle** | Twinkling effect | Activity indicators |
 | **Chase** | Scanner animation | Processing, retro effects |
 | **Alert** | Multi-severity alerts | Security, warnings |
+| **Text** | Scrolling text on 2D matrix | Labels, signs, decoration |
+| **State Text** | Live entity value as scrolling text | Clocks, sensor readouts |
 
 📖 **[Complete Effects Reference](docs/EFFECTS_REFERENCE.md)**
 
@@ -174,7 +176,7 @@ config:
 ### Getting Started
 - **[Installation Guide](docs/INSTALLATION.md)** - Detailed installation instructions
 - **[Quick Start Guide](docs/QUICK_START.md)** - Your first effect in 5 minutes
-- **[Effects Reference](docs/EFFECTS_REFERENCE.md)** - All 9 effects documented
+- **[Effects Reference](docs/EFFECTS_REFERENCE.md)** - All 11 effects documented
 
 ### Advanced
 - **[Per-LED Control](docs/README_PER_LED_CONTROL.md)** - Pixel-perfect control via JSON API
@@ -241,6 +243,8 @@ Contributions welcome!
 
 ## 🆕 Version History
 
+- **v1.3.0** - Added Text and State Text effects (scrolling text on WLED 2D matrix)
+- Text, State Text, Clocks, live sensor readouts via `StateTextEffect`
 - **v1.0.0** - Initial release with 9 effects, context-aware features, full documentation
 - Core effects: Rainbow Wave, Segment Fade, Loading, State Sync
 - Advanced effects: Breathe, Meter, Sparkle, Chase, Alert
@@ -252,5 +256,5 @@ Contributions welcome!
 **Made with ❤️ for the Home Assistant community**
 
 **Repository**: [hacs-wledext-effects](https://github.com/tamaygz/hacs-wledext-effects)  
-**Version**: 1.0.0
+**Version**: 1.3.0
 
