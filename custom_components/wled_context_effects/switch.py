@@ -31,6 +31,7 @@ from .const import (
     SERVICE_RELOAD,
     SERVICE_RUN_ONCE,
     SERVICE_SET_CONFIG,
+    SERVICE_SET_TEXT,
     SERVICE_START_EFFECT,
     SERVICE_STOP_EFFECT,
 )
@@ -64,6 +65,18 @@ async def async_setup_entry(
         SERVICE_SET_CONFIG,
         {vol.Required("config"): dict},
         "async_set_config",
+    )
+    platform.async_register_entity_service(
+        SERVICE_SET_TEXT,
+        {
+            vol.Required("text"): str,
+            vol.Optional("scroll_speed"): vol.All(int, vol.Range(min=0, max=255)),
+            vol.Optional("direction"): vol.In(["left", "right"]),
+            vol.Optional("font_size"): vol.All(int, vol.Range(min=1, max=4)),
+            vol.Optional("text_color"): str,
+            vol.Optional("bg_color"): str,
+        },
+        "async_set_text",
     )
     platform.async_register_entity_service(SERVICE_RELOAD, {}, "async_reload_effect")
 
@@ -163,6 +176,12 @@ class WLEDEffectSwitch(CoordinatorEntity[EffectCoordinator], SwitchEntity):
 
     async def async_set_config(self, config: dict) -> None:
         """Handle set_config service call."""
+        await self.coordinator.async_update_config(config)
+
+    async def async_set_text(self, text: str, **kwargs: Any) -> None:
+        """Handle set_text service call."""
+        config: dict[str, Any] = {"text": text}
+        config.update({k: v for k, v in kwargs.items() if v is not None})
         await self.coordinator.async_update_config(config)
 
     async def async_reload_effect(self) -> None:

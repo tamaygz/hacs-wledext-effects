@@ -61,6 +61,7 @@ SERVICE_START_EFFECT: Final = "start_effect"
 SERVICE_STOP_EFFECT: Final = "stop_effect"
 SERVICE_RUN_ONCE: Final = "run_once"
 SERVICE_SET_CONFIG: Final = "set_config"
+SERVICE_SET_TEXT: Final = "set_text"
 SERVICE_RELOAD: Final = "reload"
 
 # Service fields

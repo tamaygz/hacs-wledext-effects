@@ -40,6 +40,58 @@ set_config:
       selector:
         object:
 
+set_text:
+  name: Set Text
+  description: Update the text shown by a TextEffect or StateTextEffect
+  target:
+    entity:
+      integration: wled_context_effects
+      domain: switch
+  fields:
+    text:
+      name: Text
+      description: Text to display on the LED matrix
+      required: true
+      selector:
+        text:
+    scroll_speed:
+      name: Scroll Speed
+      description: Marquee speed 0–255
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 255
+    direction:
+      name: Direction
+      description: Scroll direction
+      required: false
+      selector:
+        select:
+          options:
+            - left
+            - right
+    font_size:
+      name: Font Size
+      description: Font size 1–4 (small to large)
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 4
+    text_color:
+      name: Text Color
+      description: Foreground color as R,G,B
+      required: false
+      selector:
+        text:
+    bg_color:
+      name: Background Color
+      description: Background color as R,G,B
+      required: false
+      selector:
+        text:
+
 reload:
   name: Reload
   description: Reload effect modules (for development)
