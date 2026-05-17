@@ -69,10 +69,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         effect_type = entry.data[CONF_EFFECT_TYPE]
         effect_class = EFFECT_REGISTRY.get_effect_class(effect_type)
 
-        # Create effect configuration
+        # Create effect configuration: top-level options supply segment_id, brightness,
+        # start_led, stop_led, etc.; effect-specific params from CONF_EFFECT_CONFIG
+        # override same-named top-level keys and the nested dict itself is excluded.
         effect_config = {
+            **{k: v for k, v in entry.options.items() if k != CONF_EFFECT_CONFIG},
             **entry.options.get(CONF_EFFECT_CONFIG, {}),
-            **entry.options,
         }
 
         # Instantiate effect with both clients
@@ -115,7 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # This is a configuration error, not a temporary issue
         return False
 
-    except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
+    except (OSError, asyncio.TimeoutError) as err:
         _LOGGER.error("Connection/network error during setup: %s", err)
         raise ConfigEntryNotReady(f"Connection error: {err}") from err
     

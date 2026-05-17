@@ -206,7 +206,7 @@ class WLEDJsonApiClient:
         data = await self._request("GET", ENDPOINT_PALETTES)
         return data if isinstance(data, list) else []
 
-    async def set_state(self, state: dict[str, Any], return_state: bool = False) -> dict[str, Any] | None:
+    async def set_state(self, state: dict[str, Any], return_state: bool = False) -> dict[str, Any]:
         """Update device state.
 
         Args:
@@ -214,7 +214,7 @@ class WLEDJsonApiClient:
             return_state: If True, returns full state after update
 
         Returns:
-            Full state object if return_state=True, else None
+            Full state object if return_state=True, else empty dict
             
         Raises:
             ValueError: If state structure is invalid
@@ -235,7 +235,7 @@ class WLEDJsonApiClient:
                     raise ValueError(f"Segment id must be int, got {type(seg['id'])}")
         
         if return_state:
-            state["v"] = True
+            state = {**state, "v": True}
         
         return await self._request("POST", ENDPOINT_STATE, json_data=state)
 
@@ -275,8 +275,8 @@ class WLEDJsonApiClient:
         Returns:
             New state (True = on, False = off)
         """
-        result = await self.set_state({"on": "t", "v": True})
-        return result.get("on", False) if result else False
+        result = await self.set_state({"on": "t"}, return_state=True)
+        return result.get("on", False)
 
     # ========== Segment Control ==========
 

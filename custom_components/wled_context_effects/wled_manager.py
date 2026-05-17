@@ -61,11 +61,15 @@ class WLEDConnectionManager:
         # Check if at capacity and evict oldest
         total_clients = len(self._clients) + len(self._json_clients)
         if total_clients >= MAX_CACHED_CLIENTS:
-            # Evict oldest python-wled client
             if self._clients:
                 oldest_host = next(iter(self._clients))
                 _LOGGER.info("Client cache full (%d), evicting oldest: %s", MAX_CACHED_CLIENTS, oldest_host)
                 await self.close_client(oldest_host)
+            elif self._json_clients:
+                oldest_key = next(iter(self._json_clients))
+                _LOGGER.info("Client cache full (%d), evicting oldest json client: %s", MAX_CACHED_CLIENTS, oldest_key)
+                parts = oldest_key.split(":")
+                await self.close_json_client(parts[0], int(parts[1]) if len(parts) > 1 else 80)
 
         try:
             _LOGGER.info("Creating new WLED client for %s", host)
@@ -100,14 +104,18 @@ class WLEDConnectionManager:
         Returns:
             True if connection successful
         """
+        client = WLED(host)
         try:
-            client = WLED(host)
             await client.update()
-            await client.close()
             return True
         except Exception as err:
             _LOGGER.debug("Connection test failed for %s: %s", host, err)
             return False
+        finally:
+            try:
+                await client.close()
+            except Exception:
+                pass
 
     async def get_json_client(
         self,
@@ -140,12 +148,15 @@ class WLEDConnectionManager:
         # Check if at capacity and evict oldest
         total_clients = len(self._clients) + len(self._json_clients)
         if total_clients >= MAX_CACHED_CLIENTS:
-            # Evict oldest JSON API client
             if self._json_clients:
                 oldest_key = next(iter(self._json_clients))
                 _LOGGER.info("Client cache full (%d), evicting oldest: %s", MAX_CACHED_CLIENTS, oldest_key)
                 parts = oldest_key.split(":")
                 await self.close_json_client(parts[0], int(parts[1]) if len(parts) > 1 else 80)
+            elif self._clients:
+                oldest_host = next(iter(self._clients))
+                _LOGGER.info("Client cache full (%d), evicting oldest wled client: %s", MAX_CACHED_CLIENTS, oldest_host)
+                await self.close_client(oldest_host)
 
         try:
             _LOGGER.info("Creating new JSON API client for %s", client_key)

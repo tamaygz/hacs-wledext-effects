@@ -5,9 +5,6 @@ from typing import Final
 # Integration domain
 DOMAIN: Final = "wled_context_effects"
 
-# Platforms
-PLATFORMS: Final = ["switch", "number", "select", "sensor", "button"]
-
 # Configuration and options
 CONF_WLED_DEVICE_ID: Final = "wled_device_id"
 CONF_WLED_UNIQUE_ID: Final = "wled_unique_id"

@@ -104,12 +104,8 @@ class RateLimiter:
             True if under rate limit
         """
         current_time = time.time()
-
-        # Remove old timestamps
-        while self._timestamps and self._timestamps[0] < current_time - self.window:
-            self._timestamps.popleft()
-
-        return len(self._timestamps) < self.max_commands
+        count = sum(1 for t in self._timestamps if t >= current_time - self.window)
+        return count < self.max_commands
 
     @property
     def current_rate(self) -> int:
@@ -119,12 +115,7 @@ class RateLimiter:
             Number of commands in current window
         """
         current_time = time.time()
-
-        # Remove old timestamps
-        while self._timestamps and self._timestamps[0] < current_time - self.window:
-            self._timestamps.popleft()
-
-        return len(self._timestamps)
+        return sum(1 for t in self._timestamps if t >= current_time - self.window)
 
     @property
     def available_slots(self) -> int:

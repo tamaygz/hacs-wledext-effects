@@ -4,10 +4,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import voluptuous as vol
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback, async_get_current_platform
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -27,6 +28,11 @@ from .const import (
     ICON_EFFECT,
     ICON_RUNNING,
     ICON_STOPPED,
+    SERVICE_RELOAD,
+    SERVICE_RUN_ONCE,
+    SERVICE_SET_CONFIG,
+    SERVICE_START_EFFECT,
+    SERVICE_STOP_EFFECT,
 )
 from .coordinator import EffectCoordinator
 from .device import create_device_info
@@ -49,6 +55,17 @@ async def async_setup_entry(
     coordinator: EffectCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     async_add_entities([WLEDEffectSwitch(coordinator, entry)])
+
+    platform = async_get_current_platform()
+    platform.async_register_entity_service(SERVICE_START_EFFECT, {}, "async_start_effect")
+    platform.async_register_entity_service(SERVICE_STOP_EFFECT, {}, "async_stop_effect")
+    platform.async_register_entity_service(SERVICE_RUN_ONCE, {}, "async_run_once")
+    platform.async_register_entity_service(
+        SERVICE_SET_CONFIG,
+        {vol.Required("config"): dict},
+        "async_set_config",
+    )
+    platform.async_register_entity_service(SERVICE_RELOAD, {}, "async_reload_effect")
 
 
 class WLEDEffectSwitch(CoordinatorEntity[EffectCoordinator], SwitchEntity):
@@ -131,3 +148,23 @@ class WLEDEffectSwitch(CoordinatorEntity[EffectCoordinator], SwitchEntity):
         """Turn off the effect."""
         _LOGGER.debug("Turning off effect %s", self._attr_name)
         await self.coordinator.async_stop_effect()
+
+    async def async_start_effect(self) -> None:
+        """Handle start_effect service call."""
+        await self.coordinator.async_start_effect()
+
+    async def async_stop_effect(self) -> None:
+        """Handle stop_effect service call."""
+        await self.coordinator.async_stop_effect()
+
+    async def async_run_once(self) -> None:
+        """Handle run_once service call."""
+        await self.coordinator.async_run_once()
+
+    async def async_set_config(self, config: dict) -> None:
+        """Handle set_config service call."""
+        await self.coordinator.async_update_config(config)
+
+    async def async_reload_effect(self) -> None:
+        """Handle reload service call."""
+        await self.hass.config_entries.async_reload(self.coordinator.config_entry.entry_id)

@@ -95,6 +95,9 @@ class WLEDEffectSelect(CoordinatorEntity[EffectCoordinator], SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
+        if option not in self._attr_options:
+            _LOGGER.error("Invalid option %s for %s", option, self._key)
+            return
         _LOGGER.debug("Setting %s to %s", self._key, option)
         
         # Update coordinator config
