@@ -112,6 +112,18 @@ class TextEffect(WLEDEffectBase):
         )
         return True
 
+    async def run_once(self) -> None:
+        """Run effect once, lazily resolving fx_id if setup() was not called."""
+        if self._scrolling_text_fx_id is None:
+            if self.json_client is None:
+                from ..errors import EffectExecutionError
+                raise EffectExecutionError("TextEffect requires a JSON API client")
+            await asyncio.gather(
+                self._detect_matrix_settings(),
+                self._resolve_fx_id(),
+            )
+        await super().run_once()
+
     async def _detect_matrix_settings(self) -> None:
         """Auto-detect 2D matrix dimensions and segment info from WLED device."""
         try:
@@ -334,6 +346,8 @@ class TextEffect(WLEDEffectBase):
                 },
                 "fx_id": {
                     "type": "integer",
+                    "minimum": 0,
+                    "maximum": 255,
                     "description": "Override auto-resolved Scrolling Text effect ID",
                 },
             }
