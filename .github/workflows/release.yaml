@@ -1,0 +1,184 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 1.4.0 or 1.4.0-beta.1). Leave empty to auto-bump patch version."
+        required: false
+        type: string
+      prerelease:
+        description: "Mark as pre-release. Auto-enabled when running from a non-default branch."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        # No `ref:` -> defaults to github.ref (the branch chosen in workflow_dispatch).
+        # Do NOT hardcode `ref: main` here; that is the bug that makes the workflow
+        # ignore the selected branch.
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Show release context
+        run: |
+          echo "Releasing from branch: ${{ github.ref_name }}"
+          echo "Triggering SHA: ${{ github.sha }}"
+          echo "Default branch: ${{ github.event.repository.default_branch }}"
+          echo "HEAD SHA after checkout: $(git rev-parse HEAD)"
+          if [ "${{ github.ref_name }}" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "::warning::Releasing from non-default branch '${{ github.ref_name }}'. Release will be marked as pre-release so HACS does not serve it as 'latest' to all users."
+          fi
+
+      - name: Determine prerelease flag
+        id: prerelease
+        shell: bash
+        run: |
+          if [ "${{ github.ref_name }}" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "Branch '${{ github.ref_name }}' is not the default branch -> forcing prerelease=true"
+            echo "value=true" >> $GITHUB_OUTPUT
+          elif [ "${{ inputs.prerelease }}" = "true" ]; then
+            echo "Manual prerelease=true requested"
+            echo "value=true" >> $GITHUB_OUTPUT
+          else
+            echo "value=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+            echo "Using provided version: $VERSION"
+          else
+            VERSION=$(python3 << 'EOF'
+          import json
+          import sys
+
+          try:
+              with open('custom_components/wled_context_effects/manifest.json', 'r') as f:
+                  manifest = json.load(f)
+
+              current_version = manifest.get('version', '0.0.0')
+              print(f"Current version in manifest: {current_version}", file=sys.stderr)
+
+              # Strip any pre-release suffix like 1.4.0-beta.1 before bumping
+              core = current_version.split('-', 1)[0]
+              parts = core.split('.')
+              if len(parts) != 3:
+                  print(f"Error: Version must be MAJOR.MINOR.PATCH, got: {current_version}", file=sys.stderr)
+                  sys.exit(1)
+
+              try:
+                  major, minor, patch = (int(p) for p in parts)
+              except ValueError:
+                  print(f"Error: Version parts must be integers, got: {current_version}", file=sys.stderr)
+                  sys.exit(1)
+
+              new_version = f"{major}.{minor}.{patch + 1}"
+              print(f"Auto-bumped version: {new_version}", file=sys.stderr)
+              print(new_version)
+          except Exception as e:
+              print(f"Error processing version: {e}", file=sys.stderr)
+              sys.exit(1)
+          EOF
+          )
+          fi
+
+          if [ -z "$VERSION" ]; then
+            echo "Error: VERSION is empty. Failing workflow." >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Final version to release: $VERSION"
+
+      - name: Update version in manifest
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Setting version to: $VERSION"
+          python3 - << EOF
+          import json, pathlib
+          p = pathlib.Path("custom_components/wled_context_effects/manifest.json")
+          data = json.loads(p.read_text())
+          data["version"] = "$VERSION"
+          p.write_text(json.dumps(data, indent=2) + "\n")
+          EOF
+          cat custom_components/wled_context_effects/manifest.json
+
+      - name: Check if release already exists
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/v${VERSION}$"; then
+            echo "Error: Release tag v${VERSION} already exists. Pick a different version or delete the existing tag."
+            exit 1
+          fi
+          echo "Release tag v${VERSION} does not exist. Proceeding..."
+
+      - name: Commit version update
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add custom_components/wled_context_effects/manifest.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+            git pull --rebase origin "${{ github.ref_name }}" || {
+              echo "Error: Rebase failed. This may indicate a concurrent workflow run or manual changes."
+              exit 1
+            }
+            git push origin HEAD:"${{ github.ref_name }}"
+          fi
+
+      - name: Create release zip
+        run: |
+          cd custom_components
+          zip -r ../wled_context_effects.zip wled_context_effects
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          # target_commitish pins the tag to the SHA we just pushed on the chosen branch.
+          target_commitish: ${{ github.ref_name }}
+          name: Release v${{ steps.version.outputs.version }}
+          prerelease: ${{ steps.prerelease.outputs.value == 'true' }}
+          files: wled_context_effects.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Handle release failure
+        if: failure() && steps.create_release.outcome == 'failure'
+        run: |
+          echo "Release creation failed."
+          echo "manifest.json was updated to ${{ steps.version.outputs.version }} and committed to ${{ github.ref_name }}."
+          echo "Either manually create release v${{ steps.version.outputs.version }} or revert the manifest bump."
+          exit 1
+
+      - name: Summary
+        run: |
+          echo "Release v${{ steps.version.outputs.version }} created"
+          echo "Branch:      ${{ github.ref_name }}"
+          echo "Target SHA:  $(git rev-parse HEAD)"
+          echo "Prerelease:  ${{ steps.prerelease.outputs.value }}"
+          if [ "${{ steps.prerelease.outputs.value }}" = "true" ]; then
+            echo ""
+            echo "HACS will only show this release to users who enabled 'Show beta versions'."
+            echo "In HACS: open the integration -> three-dot menu -> enable 'Show beta versions' -> Redownload."
+          fi

@@ -180,6 +180,17 @@ class WLEDEffectBase:
             if self.start_led is None or self.stop_led is None:
                 await self._auto_detect_range()
 
+            # Safety net: _auto_detect_range() must always set both values,
+            # but guard here in case of unforeseen code paths.
+            if self.start_led is None or self.stop_led is None:
+                _LOGGER.error(
+                    "LED range still None after _auto_detect_range for %s "
+                    "— falling back to defaults (0-59)",
+                    self.__class__.__name__,
+                )
+                self.start_led = 0
+                self.stop_led = 59
+
             # Setup trigger manager if configured
             if self.trigger_manager:
                 raw_trigger = self.config.get("trigger_config")
@@ -258,6 +269,12 @@ class WLEDEffectBase:
     async def run_once(self) -> None:
         """Run effect once."""
         if self.start_led is None or self.stop_led is None:
+            _LOGGER.warning(
+                "Effect %s LED range not set at run_once; re-running auto-detect",
+                self.__class__.__name__,
+            )
+            await self._auto_detect_range()
+        if self.start_led is None or self.stop_led is None:
             raise EffectExecutionError(
                 f"Effect {self.__class__.__name__} LED range not initialized; "
                 "call setup() before run_once()"
@@ -274,6 +291,12 @@ class WLEDEffectBase:
         """Main effect loop (continuous mode)."""
         _LOGGER.debug("Starting effect loop for %s", self.__class__.__name__)
 
+        if self.start_led is None or self.stop_led is None:
+            _LOGGER.warning(
+                "Effect %s LED range not set at loop start; re-running auto-detect",
+                self.__class__.__name__,
+            )
+            await self._auto_detect_range()
         if self.start_led is None or self.stop_led is None:
             _LOGGER.error(
                 "Effect %s LED range not initialized; stopping loop",
@@ -594,6 +617,8 @@ class WLEDEffectBase:
                 self.start_led = 0
                 self.stop_led = 59  # Default fallback
 
+        except asyncio.CancelledError:
+            raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Error during LED detection: %s, using defaults", err)
             self.start_led = 0
@@ -938,8 +963,10 @@ class WLEDEffectBase:
         """
         # Reload common config
         self.segment_id = self.config.get("segment_id", DEFAULT_SEGMENT_ID)
-        self.start_led = self.config.get("start_led")
-        self.stop_led = self.config.get("stop_led")
+        if self.config.get("start_led") is not None:
+            self.start_led = self.config["start_led"]
+        if self.config.get("stop_led") is not None:
+            self.stop_led = self.config["stop_led"]
         self.brightness = self.config.get("brightness", DEFAULT_BRIGHTNESS)
         
         # Context-aware features

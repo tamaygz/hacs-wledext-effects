@@ -1,9 +1,13 @@
 {
   "domain": "wled_context_effects",
   "name": "WLED Context Effects",
-  "codeowners": ["@tamaygz"],
+  "codeowners": [
+    "@tamaygz"
+  ],
   "config_flow": true,
-  "dependencies": ["wled"],
+  "dependencies": [
+    "wled"
+  ],
   "documentation": "https://github.com/tamaygz/hacs-wledext-effects",
   "integration_type": "device",
   "iot_class": "local_push",
