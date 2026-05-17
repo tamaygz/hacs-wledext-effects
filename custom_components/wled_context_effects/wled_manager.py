@@ -16,8 +16,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-# Maximum number of cached clients to prevent unbounded memory growth
-MAX_CACHED_CLIENTS = 20
+# Separate capacity limits per pool to prevent cross-pool eviction
+MAX_CACHED_WLED_CLIENTS = 10
+MAX_CACHED_JSON_CLIENTS = 10
 
 
 class WLEDConnectionManager:
@@ -58,18 +59,15 @@ class WLEDConnectionManager:
             self._clients[host] = client
             return client
 
-        # Check if at capacity and evict oldest
-        total_clients = len(self._clients) + len(self._json_clients)
-        if total_clients >= MAX_CACHED_CLIENTS:
-            if self._clients:
-                oldest_host = next(iter(self._clients))
-                _LOGGER.info("Client cache full (%d), evicting oldest: %s", MAX_CACHED_CLIENTS, oldest_host)
-                await self.close_client(oldest_host)
-            elif self._json_clients:
-                oldest_key = next(iter(self._json_clients))
-                _LOGGER.info("Client cache full (%d), evicting oldest json client: %s", MAX_CACHED_CLIENTS, oldest_key)
-                parts = oldest_key.split(":")
-                await self.close_json_client(parts[0], int(parts[1]) if len(parts) > 1 else 80)
+        # Evict from WLED pool only — never touch the JSON client pool
+        if len(self._clients) >= MAX_CACHED_WLED_CLIENTS:
+            oldest_host = next(iter(self._clients))
+            _LOGGER.info(
+                "WLED client cache full (%d), evicting oldest: %s",
+                MAX_CACHED_WLED_CLIENTS,
+                oldest_host,
+            )
+            await self.close_client(oldest_host)
 
         try:
             _LOGGER.info("Creating new WLED client for %s", host)
@@ -108,7 +106,7 @@ class WLEDConnectionManager:
         try:
             await client.update()
             return True
-        except Exception as err:
+        except (WLEDConnectionError, OSError, asyncio.TimeoutError, ValueError) as err:
             _LOGGER.debug("Connection test failed for %s: %s", host, err)
             return False
         finally:
@@ -145,18 +143,16 @@ class WLEDConnectionManager:
             self._json_clients[client_key] = client
             return client
 
-        # Check if at capacity and evict oldest
-        total_clients = len(self._clients) + len(self._json_clients)
-        if total_clients >= MAX_CACHED_CLIENTS:
-            if self._json_clients:
-                oldest_key = next(iter(self._json_clients))
-                _LOGGER.info("Client cache full (%d), evicting oldest: %s", MAX_CACHED_CLIENTS, oldest_key)
-                parts = oldest_key.split(":")
-                await self.close_json_client(parts[0], int(parts[1]) if len(parts) > 1 else 80)
-            elif self._clients:
-                oldest_host = next(iter(self._clients))
-                _LOGGER.info("Client cache full (%d), evicting oldest wled client: %s", MAX_CACHED_CLIENTS, oldest_host)
-                await self.close_client(oldest_host)
+        # Evict from JSON pool only — never touch the WLED client pool
+        if len(self._json_clients) >= MAX_CACHED_JSON_CLIENTS:
+            oldest_key = next(iter(self._json_clients))
+            _LOGGER.info(
+                "JSON client cache full (%d), evicting oldest: %s",
+                MAX_CACHED_JSON_CLIENTS,
+                oldest_key,
+            )
+            parts = oldest_key.split(":")
+            await self.close_json_client(parts[0], int(parts[1]) if len(parts) > 1 else 80)
 
         try:
             _LOGGER.info("Creating new JSON API client for %s", client_key)

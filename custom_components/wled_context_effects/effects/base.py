@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import abstractmethod
+from dataclasses import fields
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -103,6 +104,11 @@ class WLEDEffectBase:
         self._success_count = 0
         self._failure_count = 0
         self._start_time: datetime | None = None
+
+        # Track the last values we commanded so check_manual_override can detect
+        # whether a human changed the device state behind our back.
+        self._last_commanded_on: bool | None = None
+        self._last_commanded_brightness: int | None = None
 
         # Extract common config
         self.segment_id: int = config.get("segment_id", DEFAULT_SEGMENT_ID)
@@ -318,6 +324,13 @@ class WLEDEffectBase:
 
             await self.wled.segment(**kwargs)
             self._success_count += 1
+
+            # Track what we last commanded so check_manual_override can detect drift
+            if "on" in kwargs:
+                self._last_commanded_on = bool(kwargs["on"])
+            if "brightness" in kwargs:
+                self._last_commanded_brightness = int(kwargs["brightness"])
+
             return True
 
         except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:

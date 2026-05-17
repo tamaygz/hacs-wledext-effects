@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 import aiohttp
 
-from .errors import ConnectionError as WLEDConnectionError, RateLimitError
+from .circuit_breaker import CircuitBreaker
+from .errors import CircuitBreakerOpenError, ConnectionError as WLEDConnectionError, RateLimitError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,6 +23,9 @@ ENDPOINT_JSON = "/json"
 # Buffer size limits for per-LED control
 MAX_BUFFER_ESP8266 = 10000
 MAX_BUFFER_ESP32 = 24000
+
+# How long (seconds) device info may be served from cache before re-fetching
+_DEVICE_INFO_TTL = 300
 
 
 class WLEDJsonApiClient:
@@ -58,6 +63,8 @@ class WLEDJsonApiClient:
         self._owned_session = session is None
         self.timeout = aiohttp.ClientTimeout(total=timeout)
         self._device_info: dict[str, Any] | None = None
+        self._device_info_fetched_at: float | None = None
+        self._circuit_breaker = CircuitBreaker(name=f"wled-{host}")
         
         _LOGGER.debug("WLED JSON API client initialized for %s:%d", host, port)
 
@@ -79,7 +86,7 @@ class WLEDJsonApiClient:
                 self._session = None
                 _LOGGER.debug("WLED JSON API client session closed for %s", self.host)
 
-    async def _request(
+    async def _do_request(
         self,
         method: str,
         endpoint: str,
@@ -168,6 +175,28 @@ class WLEDJsonApiClient:
             f"WLED API request failed after {max_retries} attempts"
         ) from last_error
 
+    async def _request(
+        self,
+        method: str,
+        endpoint: str,
+        json_data: dict[str, Any] | None = None,
+        max_retries: int = 3,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Call _do_request through the circuit breaker.
+
+        Raises:
+            WLEDConnectionError: If request fails or circuit breaker is open
+        """
+        try:
+            return await self._circuit_breaker.call(
+                self._do_request, method, endpoint, json_data, max_retries, **kwargs
+            )
+        except CircuitBreakerOpenError as err:
+            raise WLEDConnectionError(
+                f"WLED device {self.host} is temporarily unavailable (circuit open): {err}"
+            ) from err
+
     # ========== State Management ==========
 
     async def get_state(self) -> dict[str, Any]:
@@ -181,11 +210,20 @@ class WLEDJsonApiClient:
     async def get_info(self) -> dict[str, Any]:
         """Get device information.
 
+        Caches the result for up to _DEVICE_INFO_TTL seconds to avoid
+        hammering the device with repeated identical requests.
+
         Returns:
             Info object with device details
         """
-        if self._device_info is None:
+        now = time.time()
+        if (
+            self._device_info is None
+            or self._device_info_fetched_at is None
+            or now - self._device_info_fetched_at >= _DEVICE_INFO_TTL
+        ):
             self._device_info = await self._request("GET", ENDPOINT_INFO)
+            self._device_info_fetched_at = now
         return self._device_info
 
     async def get_effects(self) -> list[str]:
