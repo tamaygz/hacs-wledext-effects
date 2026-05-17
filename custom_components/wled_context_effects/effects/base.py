@@ -918,8 +918,10 @@ class WLEDEffectBase:
         """
         # Reload common config
         self.segment_id = self.config.get("segment_id", DEFAULT_SEGMENT_ID)
-        self.start_led = self.config.get("start_led")
-        self.stop_led = self.config.get("stop_led")
+        if "start_led" in self.config:
+            self.start_led = self.config.get("start_led")
+        if "stop_led" in self.config:
+            self.stop_led = self.config.get("stop_led")
         self.brightness = self.config.get("brightness", DEFAULT_BRIGHTNESS)
         
         # Context-aware features
