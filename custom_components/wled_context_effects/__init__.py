@@ -186,9 +186,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Clean up if this was the last entry (only connection_manager remains)
         if len(hass.data[DOMAIN]) == 1 and "connection_manager" in hass.data[DOMAIN]:
-            connection_manager: WLEDConnectionManager = hass.data[DOMAIN].pop(
-                "connection_manager"
-            )
+            connection_manager = hass.data[DOMAIN].pop("connection_manager")
             if connection_manager:
                 await connection_manager.close_all()
             # Clean up domain data if empty
