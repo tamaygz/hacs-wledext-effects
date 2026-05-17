@@ -389,7 +389,7 @@ If you have multiple WLED devices, configure one completely before adding others
 
 Ready to dive deeper?
 
-- **[Effects Reference](EFFECTS_REFERENCE.md)** - Detailed guide to all 9 effects
+- **[Effects Reference](EFFECTS_REFERENCE.md)** - Detailed guide to all 11 effects
 - **[Context-Aware Features](CONTEXT_AWARE_FEATURES.md)** - Make effects react to your smart home
 - **[Advanced Guide](ADVANCED_GUIDE.md)** - Triggers, data mapping, and complex automations
 - **[Services API](SERVICES_API.md)** - Complete service documentation
@@ -409,5 +409,5 @@ Having trouble? Check:
 
 ---
 
-**Last Updated**: January 2026  
-**Version**: 1.0.0
+**Last Updated**: June 2025  
+**Version**: 1.3.0

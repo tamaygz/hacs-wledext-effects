@@ -1,6 +1,6 @@
 # Effects Reference
 
-Complete guide to all 9 built-in effects with configurations, examples, and use cases.
+Complete guide to all 11 built-in effects with configurations, examples, and use cases.
 
 ## Quick Navigation
 
@@ -13,6 +13,8 @@ Complete guide to all 9 built-in effects with configurations, examples, and use 
 - [Sparkle](#sparkle) - Twinkling activity indicator
 - [Chase](#chase) - Moving scanner effect
 - [Alert](#alert) - Multi-severity notification system
+- [Text](#text) - Scrolling text on 2D matrix
+- [State Text](#state-text) - Entity state as scrolling text
 
 ---
 
@@ -773,19 +775,169 @@ config:
 
 ---
 
+## Text
+
+**Category**: Display / Ambient  
+**Purpose**: Display scrolling text on a WLED 2D LED matrix  
+**Best For**: Labels, clocks, status messages, decoration  
+**Requires**: WLED device configured as a 2D matrix
+
+### Overview
+
+Renders a scrolling marquee using WLED's built-in *Scrolling Text* effect. Matrix dimensions and the 2D segment configuration are auto-detected from the device at setup time; manual overrides are available via `matrix_width` / `matrix_height` config keys.
+
+### Configuration Parameters
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `text` | string | "WLED" | - | Text to scroll |
+| `scroll_speed` | integer | 128 | 0-255 | Marquee speed (higher = faster) |
+| `font_size` | integer | 1 | 1-4 | Font size (1 = smallest) |
+| `direction` | string | "left" | "left"/"right" | Scroll direction |
+| `text_color` | string | "255,255,255" | R,G,B | Foreground (text) color |
+| `bg_color` | string | "0,0,0" | R,G,B | Background color |
+| `update_interval` | float | 1.0 | ≥ 0.1 | Seconds between re-sends |
+| `matrix_width` | integer | - | - | Override auto-detected column count |
+| `matrix_height` | integer | - | - | Override auto-detected row count |
+| `fx_id` | integer | - | 0-255 | Override auto-resolved Scrolling Text effect ID |
+
+### Examples
+
+#### Hello World
+```yaml
+effect_type: TextEffect
+config:
+  text: "Hello World"
+  scroll_speed: 100
+  text_color: "0,255,128"
+  bg_color: "0,0,0"
+  font_size: 1
+```
+
+#### Slow Custom Message
+```yaml
+effect_type: TextEffect
+config:
+  text: "OPEN"
+  scroll_speed: 60
+  direction: left
+  text_color: "255,200,0"
+  bg_color: "0,0,0"
+  font_size: 2
+```
+
+#### Reversed Marquee
+```yaml
+effect_type: TextEffect
+config:
+  text: "WLED"
+  scroll_speed: 150
+  direction: right
+  text_color: "0,200,255"
+```
+
+### Use Cases
+
+- **Shop/bar sign**: Scrolling "OPEN" or custom message
+- **Room labels**: Display room name on a wall matrix
+- **Clock display**: Pair with `StateTextEffect` for live time
+- **Ambient decoration**: Color-matched scrolling text
+
+---
+
+## State Text
+
+**Category**: Display / Data Visualization  
+**Purpose**: Display a Home Assistant entity state as scrolling text on a WLED 2D matrix  
+**Best For**: Live sensor readouts, clocks, counters, dynamic labels  
+**Requires**: WLED device configured as a 2D matrix
+
+### Overview
+
+Extends `TextEffect` by monitoring a Home Assistant entity (and optional attribute). When the state value changes the matrix text is updated on the next effect cycle. A `text_template` controls how the value is rendered.
+
+Inherits all `TextEffect` configuration parameters plus the following:
+
+### Additional Configuration Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `state_entity` | string | **Required** | HA entity ID whose state/attribute is displayed |
+| `state_attribute` | string | - | Entity attribute to display (omit for main state value) |
+| `text_template` | string | "{state}" | Format string; `{state}` is replaced with the entity value |
+| `update_interval` | float | 5.0 | Polling interval in seconds (state-change events also trigger updates) |
+
+### Examples
+
+#### Temperature Readout
+```yaml
+effect_type: StateTextEffect
+config:
+  state_entity: sensor.living_room_temperature
+  text_template: "Temp: {state}°C"
+  scroll_speed: 80
+  text_color: "255,100,0"
+  bg_color: "0,0,0"
+```
+
+#### Live Clock (using `sensor.time`)
+```yaml
+effect_type: StateTextEffect
+config:
+  state_entity: sensor.time
+  text_template: "{state}"
+  scroll_speed: 100
+  text_color: "0,200,255"
+  update_interval: 5.0
+```
+
+#### CPU Usage
+```yaml
+effect_type: StateTextEffect
+config:
+  state_entity: sensor.processor_use
+  text_template: "CPU: {state}%"
+  scroll_speed: 90
+  text_color: "255,255,0"
+  font_size: 1
+```
+
+#### Door Lock Status
+```yaml
+effect_type: StateTextEffect
+config:
+  state_entity: lock.front_door
+  text_template: "Door: {state}"
+  scroll_speed: 70
+  text_color: "0,255,0"
+  update_interval: 2.0
+```
+
+### Use Cases
+
+- **Live sensor display**: Temperature, humidity, CO₂ readings
+- **Clock**: Live time from `sensor.time`
+- **Resource monitoring**: CPU %, memory usage
+- **Status board**: Doorbell, lock, alarm states
+- **Counter display**: Unread messages, active devices
+
+---
+
 ## Comparison Table
 
-| Effect | Category | Attention Level | CPU Load | State-Driven |
-|--------|----------|-----------------|----------|--------------|
-| **Rainbow Wave** | Ambient | Low | Low | Optional |
-| **Segment Fade** | Ambient | Low | Low | Optional |
-| **Loading** | Animation | Medium | Low | Optional |
-| **State Sync** | Visualization | Low-Med | Low-Med | Required |
-| **Breathe** | Notification | Medium | Low | Optional |
-| **Meter** | Visualization | Medium | Low | Optional |
-| **Sparkle** | Activity | Low-Med | Medium | Optional |
-| **Chase** | Animation | Medium | Low | Optional |
-| **Alert** | Notification | High | Low-Med | Optional |
+| Effect | Category | Attention Level | CPU Load | State-Driven | 2D Matrix |
+|--------|----------|-----------------|----------|--------------|----------|
+| **Rainbow Wave** | Ambient | Low | Low | Optional | No |
+| **Segment Fade** | Ambient | Low | Low | Optional | No |
+| **Loading** | Animation | Medium | Low | Optional | No |
+| **State Sync** | Visualization | Low-Med | Low-Med | Required | No |
+| **Breathe** | Notification | Medium | Low | Optional | No |
+| **Meter** | Visualization | Medium | Low | Optional | No |
+| **Sparkle** | Activity | Low-Med | Medium | Optional | No |
+| **Chase** | Animation | Medium | Low | Optional | No |
+| **Alert** | Notification | High | Low-Med | Optional | No |
+| **Text** | Display | Low | Low | No | **Yes** |
+| **State Text** | Display | Low | Low | Required | **Yes** |
 
 ---
 
@@ -797,11 +949,13 @@ config:
 - Rainbow Wave (flowing colors)
 - Segment Fade (color transitions)
 - Sparkle (starfield)
+- Text (scrolling marquee on 2D matrix)
 
 **Data Visualization**:
 - State Sync (multi-mode display)
 - Meter (gauges, bars)
 - Loading (progress bars)
+- State Text (live entity value as scrolling text on 2D matrix)
 
 **Notifications / Alerts**:
 - Alert (multi-severity, most configurable)
@@ -812,19 +966,26 @@ config:
 - Meter (levels, percentages)
 - Breathe (intensity levels)
 - Chase (processing state)
+- State Text (readable value display)
 
 **Activity / Processing**:
 - Chase (directional flow)
 - Sparkle (random activity)
 - Loading (movement)
 
+**2D Matrix Required**:
+- Text (static scrolling message)
+- State Text (live entity value)
+
 ### By Data Type
 
 - **Percentage (0-100)**: Meter, State Sync, Loading (position mode)
-- **Temperature**: State Sync, Meter (with thresholds)
-- **Binary (on/off)**: Breathe, Alert, Sparkle (burst)
+- **Temperature**: State Sync, Meter (with thresholds), State Text (readable readout)
+- **Binary (on/off)**: Breathe, Alert, Sparkle (burst), State Text (status label)
 - **Count/Activity**: Sparkle (density), Chase (speed)
 - **Priority/Severity**: Alert (auto-severity), Breathe (rate)
+- **Text/String values**: State Text (any entity state or attribute)
+- **Clocks/Timestamps**: State Text (with `sensor.time`)
 
 ---
 
@@ -836,5 +997,5 @@ config:
 
 ---
 
-**Last Updated**: January 2026  
-**Version**: 1.0.0
+**Last Updated**: June 2025  
+**Version**: 1.3.0
