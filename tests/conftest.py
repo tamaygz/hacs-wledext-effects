@@ -84,4 +84,9 @@ _stub(
 _stub("homeassistant.config_entries", ConfigEntry=object)
 
 # --- wled (python-wled external package) ---
-_stub("wled", WLED=MagicMock)
+_stub(
+    "wled",
+    WLED=MagicMock,
+    Device=MagicMock,
+    WLEDConnectionClosedError=type("WLEDConnectionClosedError", (Exception,), {}),
+)

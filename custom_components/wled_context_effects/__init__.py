@@ -65,6 +65,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Get JSON API client for per-LED control
         json_client = await connection_manager.get_json_client(wled_host)
 
+        # Acquire push-based state cache (shared per host, ref-counted)
+        state_cache = await connection_manager.acquire_state_cache(wled_host)
+        await state_cache.wait_ready(timeout=5.0)
+
         # Get effect class
         effect_type = entry.data[CONF_EFFECT_TYPE]
         effect_class = EFFECT_REGISTRY.get_effect_class(effect_type)
@@ -79,6 +83,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Instantiate effect with both clients
         effect: WLEDEffectBase = effect_class(hass, wled_client, effect_config, json_client)
+        # Attach push-cache so per-frame override checks can skip HTTP polling.
+        effect.state_cache = state_cache
 
         # Setup effect
         if not await effect.setup():
@@ -97,6 +103,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "wled_client": wled_client,
             "json_client": json_client,
             "wled_host": wled_host,
+            "state_cache": state_cache,
         }
 
         # Forward setup to platforms
@@ -164,6 +171,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await json_client.close()
             except (OSError, asyncio.TimeoutError) as err:
                 _LOGGER.error("Error closing JSON client during unload: %s", err)
+
+        # Release push-cache refcount (closes WS when last consumer unloads)
+        wled_host = entry_data.get("wled_host")
+        if wled_host:
+            connection_manager: WLEDConnectionManager = hass.data[DOMAIN].get(
+                "connection_manager"
+            )
+            if connection_manager:
+                try:
+                    await connection_manager.release_state_cache(wled_host)
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.error("Error releasing state cache for %s: %s", wled_host, err)
 
         # Clean up if this was the last entry (only connection_manager remains)
         if len(hass.data[DOMAIN]) == 1 and "connection_manager" in hass.data[DOMAIN]:

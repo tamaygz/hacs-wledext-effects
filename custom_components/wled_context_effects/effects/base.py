@@ -99,6 +99,10 @@ class WLEDEffectBase:
         self.hass = hass
         self.wled = wled_client
         self.json_client = json_client
+        # Optional push-based state cache; set by __init__.async_setup_entry.
+        # When present, check_manual_override and _auto_detect_range read from
+        # WebSocket-pushed snapshots instead of issuing HTTP GETs.
+        self.state_cache: Any = None
         self.config = config
         self._running = False
         self._task: asyncio.Task | None = None
@@ -565,7 +569,11 @@ class WLEDEffectBase:
         """Auto-detect LED range from device."""
         try:
             _LOGGER.debug("Auto-detecting LED range for WLED device")
-            device = await self.wled.update()
+            device = None
+            if self.state_cache is not None:
+                device = self.state_cache.device
+            if device is None:
+                device = await self.wled.update()
 
             if device and device.info and device.info.leds:
                 led_count = device.info.leds.count
@@ -728,24 +736,32 @@ class WLEDEffectBase:
         if not self.freeze_on_manual:
             return False
 
-        if self.json_client is None or self._last_commanded_on is None:
-            # Cannot detect without a JSON client or before we have sent any command
+        if self._last_commanded_on is None:
+            # Before we have sent any command, nothing to compare against.
             return False
 
-        # Throttle: the effect loop calls this every frame (~30 fps). Reuse the
-        # last result until the throttle interval has elapsed to avoid flooding
-        # the device with HTTP GETs.
-        now = time.monotonic()
-        if (now - self._override_last_check_monotonic) < OVERRIDE_CHECK_THROTTLE_INTERVAL:
-            return self._override_last_result
+        # Prefer WebSocket-pushed cache when available (no HTTP, sub-ms).
+        if self.state_cache is not None:
+            state = self.state_cache.get_state_dict()
+            if not state:
+                return self._override_last_result
+        else:
+            if self.json_client is None:
+                return False
+            # Throttle: the effect loop calls this every frame (~30 fps). Reuse
+            # the last result until the throttle interval has elapsed to avoid
+            # flooding the device with HTTP GETs.
+            now = time.monotonic()
+            if (now - self._override_last_check_monotonic) < OVERRIDE_CHECK_THROTTLE_INTERVAL:
+                return self._override_last_result
 
-        self._override_last_check_monotonic = now
+            self._override_last_check_monotonic = now
 
-        try:
-            state = await self.json_client.get_state()
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.debug("Could not read device state for override check: %s", err)
-            return self._override_last_result
+            try:
+                state = await self.json_client.get_state()
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Could not read device state for override check: %s", err)
+                return self._override_last_result
 
         current_on: bool = bool(state.get("on", True))
         if current_on != self._last_commanded_on:
