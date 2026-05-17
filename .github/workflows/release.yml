@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g., 1.4.0 or 1.4.0-beta.1). Leave empty to auto-bump patch version."
+        description: "Version to release (e.g., 1.4.0, 1.4.0b1, or 1.4.0-beta.1). Leave empty to auto-bump patch version."
         required: false
         type: string
       prerelease:
@@ -66,6 +66,7 @@ jobs:
           else
             VERSION=$(python3 << 'EOF'
           import json
+          import re
           import sys
 
           try:
@@ -75,18 +76,16 @@ jobs:
               current_version = manifest.get('version', '0.0.0')
               print(f"Current version in manifest: {current_version}", file=sys.stderr)
 
-              # Strip any pre-release suffix like 1.4.0-beta.1 before bumping
-              core = current_version.split('-', 1)[0]
-              parts = core.split('.')
-              if len(parts) != 3:
-                  print(f"Error: Version must be MAJOR.MINOR.PATCH, got: {current_version}", file=sys.stderr)
+              # Extract numeric core from versions like 1.4.0, 1.4.0b1, 1.4.0-beta.1
+              match = re.match(r"^(\\d+)\\.(\\d+)\\.(\\d+)", current_version)
+              if not match:
+                  print(
+                      f"Error: Version must start with MAJOR.MINOR.PATCH, got: {current_version}",
+                      file=sys.stderr,
+                  )
                   sys.exit(1)
 
-              try:
-                  major, minor, patch = (int(p) for p in parts)
-              except ValueError:
-                  print(f"Error: Version parts must be integers, got: {current_version}", file=sys.stderr)
-                  sys.exit(1)
+              major, minor, patch = (int(p) for p in match.groups())
 
               new_version = f"{major}.{minor}.{patch + 1}"
               print(f"Auto-bumped version: {new_version}", file=sys.stderr)
