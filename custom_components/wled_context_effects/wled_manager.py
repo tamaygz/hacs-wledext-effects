@@ -168,8 +168,9 @@ class WLEDDeviceStateCache:
 
             if self._stopping:
                 return
-            jitter = random.uniform(0, backoff * 0.25)
-            await asyncio.sleep(backoff + jitter)
+            jitter = random.uniform(-backoff * 0.25, backoff * 0.25)
+            sleep_time = min(backoff + jitter, WS_RECONNECT_BACKOFF_MAX)
+            await asyncio.sleep(sleep_time)
             backoff = min(backoff * 2, WS_RECONNECT_BACKOFF_MAX)
 
     async def _safety_poll_loop(self) -> None:

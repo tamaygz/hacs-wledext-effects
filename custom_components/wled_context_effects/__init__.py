@@ -57,6 +57,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     connection_manager: WLEDConnectionManager = hass.data[DOMAIN]["connection_manager"]
 
+    wled_host: str | None = None
+    state_cache_acquired = False
     try:
         # Get WLED client
         wled_host = entry.data[CONF_WLED_HOST]
@@ -67,6 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Acquire push-based state cache (shared per host, ref-counted)
         state_cache = await connection_manager.acquire_state_cache(wled_host)
+        state_cache_acquired = True
         await state_cache.wait_ready(timeout=5.0)
 
         # Get effect class
@@ -127,7 +130,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except (OSError, asyncio.TimeoutError) as err:
         _LOGGER.error("Connection/network error during setup: %s", err)
         raise ConfigEntryNotReady(f"Connection error: {err}") from err
-    
+
     except (ValueError, KeyError, TypeError) as err:
         _LOGGER.error("Configuration/data error during setup: %s", err)
         raise ConfigEntryNotReady(f"Configuration error: {err}") from err
@@ -135,6 +138,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except EffectExecutionError as err:
         _LOGGER.error("Effect execution error during setup: %s", err)
         raise ConfigEntryNotReady(f"Effect error: {err}") from err
+
+    finally:
+        # Release the state cache refcount if setup did not complete successfully
+        # (i.e., the entry data was not stored, so unload won't release it).
+        if state_cache_acquired and wled_host and entry.entry_id not in hass.data.get(DOMAIN, {}):
+            try:
+                await connection_manager.release_state_cache(wled_host)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.error("Error releasing state cache after failed setup for %s: %s", wled_host, err)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

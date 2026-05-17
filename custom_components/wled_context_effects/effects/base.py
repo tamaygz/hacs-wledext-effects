@@ -741,10 +741,14 @@ class WLEDEffectBase:
             return False
 
         # Prefer WebSocket-pushed cache when available (no HTTP, sub-ms).
+        # Fall through to the HTTP path when the cache is present but not yet
+        # seeded (empty dict means no snapshot has arrived yet).
+        cache_state: dict[str, Any] | None = None
         if self.state_cache is not None:
-            state = self.state_cache.get_state_dict()
-            if not state:
-                return self._override_last_result
+            cache_state = self.state_cache.get_state_dict()
+
+        if cache_state:
+            state = cache_state
         else:
             if self.json_client is None:
                 return False
