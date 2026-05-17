@@ -167,6 +167,15 @@ class WLEDEffectBase:
 
             # Setup trigger manager if configured
             if self.trigger_manager:
+                raw_trigger = self.config.get("trigger_config")
+                if raw_trigger:
+                    valid_field_names = {f.name for f in fields(TriggerConfig)}
+                    trigger_cfg = TriggerConfig(
+                        **{k: v for k, v in raw_trigger.items() if k in valid_field_names}
+                    )
+                    self.trigger_manager.add_trigger(
+                        "effect_trigger", trigger_cfg, self.on_trigger
+                    )
                 await self.trigger_manager.setup()
 
             # Setup state coordinator if an entity is configured
@@ -674,32 +683,59 @@ class WLEDEffectBase:
             return (255, 255, 255)
 
     async def check_manual_override(self) -> bool:
-        """Check if manual override is active.
-        
-        If freeze_on_manual is enabled, checks if WLED device was manually controlled.
-        Note: Manual override detection is not yet fully implemented.
+        """Check if the WLED device was manually controlled since our last command.
+
+        Queries the device's current state via the JSON API and compares it with
+        the last values we commanded.  Returns True only when freeze_on_manual is
+        enabled AND the device state diverges from what we last set.
 
         Returns:
-            Always returns False for now
+            True if a manual override is detected, False otherwise
         """
         if not self.freeze_on_manual:
             return False
 
-        # Manual override detection requires tracking device state changes
-        # and comparing with commanded state - to be implemented
-        _LOGGER.debug("Manual override detection not yet implemented")
+        if self.json_client is None or self._last_commanded_on is None:
+            # Cannot detect without a JSON client or before we have sent any command
+            return False
+
+        try:
+            state = await self.json_client.get_state()
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Could not read device state for override check: %s", err)
+            return False
+
+        current_on: bool = bool(state.get("on", True))
+        if current_on != self._last_commanded_on:
+            _LOGGER.info(
+                "Manual override detected: device 'on' changed to %s (expected %s)",
+                current_on,
+                self._last_commanded_on,
+            )
+            return True
+
+        if self._last_commanded_brightness is not None:
+            current_bri: int = int(state.get("bri", 255))
+            # Allow a tolerance of ±15 to account for rounding differences
+            if abs(current_bri - self._last_commanded_brightness) > 15:
+                _LOGGER.info(
+                    "Manual override detected: brightness changed to %d (expected %d)",
+                    current_bri,
+                    self._last_commanded_brightness,
+                )
+                return True
+
         return False
 
-    def on_trigger(self, trigger_data: dict[str, Any]) -> None:
+    async def on_trigger(self, trigger_data: dict[str, Any]) -> None:
         """Callback for trigger events.
-        
+
         Override this method to handle trigger events in effect implementations.
 
         Args:
             trigger_data: Data from triggered event
         """
         _LOGGER.debug("Trigger callback: %s", trigger_data)
-        # Default implementation - subclasses can override
 
     @property
     def running(self) -> bool:
