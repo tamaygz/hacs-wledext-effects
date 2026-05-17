@@ -59,7 +59,7 @@ class StateSyncEffect(WLEDEffectBase):
         """Setup effect."""
         return await super().setup()
 
-    def _get_current_value(self) -> float:
+    def _get_state_value(self) -> float:
         """Get current state value as percentage.
 
         Returns:
@@ -87,7 +87,7 @@ class StateSyncEffect(WLEDEffectBase):
             return
 
         # Get current value (0.0 to 1.0)
-        value = self._get_current_value()
+        value = self._get_state_value()
 
         # Apply smoothing if enabled
         if self.value_smoother:
