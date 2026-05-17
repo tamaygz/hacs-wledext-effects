@@ -83,6 +83,20 @@ _stub(
 )
 _stub("homeassistant.config_entries", ConfigEntry=object)
 
+# --- aiohttp ---
+class _AiohttpError(Exception):
+    """Stub base for aiohttp errors."""
+
+
+_stub(
+    "aiohttp",
+    ClientSession=MagicMock,
+    ClientTimeout=MagicMock,
+    ClientError=_AiohttpError,
+    ClientConnectionError=_AiohttpError,
+    ServerTimeoutError=_AiohttpError,
+)
+
 # --- wled (python-wled external package) ---
 _stub(
     "wled",
