@@ -205,6 +205,9 @@ class WLEDConnectionManager:
         self._clients: dict[str, WLED] = {}
         self._json_clients: dict[str, WLEDJsonApiClient] = {}
         self._state_caches: dict[str, WLEDDeviceStateCache] = {}
+        # Serialises acquire_state_cache so concurrent setups for the same host
+        # never create duplicate caches.
+        self._state_cache_lock: asyncio.Lock = asyncio.Lock()
         _LOGGER.debug("WLED connection manager initialized")
 
     async def acquire_state_cache(self, host: str) -> WLEDDeviceStateCache:
@@ -212,15 +215,19 @@ class WLEDConnectionManager:
 
         Callers MUST pair this with ``release_state_cache(host)`` on unload so the
         underlying WebSocket is closed when no effect needs it anymore.
+
+        A lock serialises concurrent callers for the same host so only one cache
+        is ever created/started per host.
         """
-        cache = self._state_caches.get(host)
-        if cache is None:
-            wled_client = await self.get_client(host)
-            cache = WLEDDeviceStateCache(host, wled_client)
-            self._state_caches[host] = cache
-            await cache.start()
-        cache.increment()
-        return cache
+        async with self._state_cache_lock:
+            cache = self._state_caches.get(host)
+            if cache is None:
+                wled_client = await self.get_client(host)
+                cache = WLEDDeviceStateCache(host, wled_client)
+                self._state_caches[host] = cache
+                await cache.start()
+            cache.increment()
+            return cache
 
     async def release_state_cache(self, host: str) -> None:
         """Decrement refcount; stop the WS when it reaches zero."""
@@ -254,15 +261,28 @@ class WLEDConnectionManager:
             self._clients[host] = client
             return client
 
-        # Evict from WLED pool only — never touch the JSON client pool
+        # Evict from WLED pool only — never touch the JSON client pool.
+        # Skip hosts that have an active state cache; evicting their client would
+        # tear down the WebSocket and break all consumers.
         if len(self._clients) >= MAX_CACHED_WLED_CLIENTS:
-            oldest_host = next(iter(self._clients))
-            _LOGGER.info(
-                "WLED client cache full (%d), evicting oldest: %s",
-                MAX_CACHED_WLED_CLIENTS,
-                oldest_host,
-            )
-            await self.close_client(oldest_host)
+            evicted = False
+            for oldest_host in list(self._clients):
+                if oldest_host not in self._state_caches:
+                    _LOGGER.info(
+                        "WLED client cache full (%d), evicting oldest: %s",
+                        MAX_CACHED_WLED_CLIENTS,
+                        oldest_host,
+                    )
+                    await self.close_client(oldest_host)
+                    evicted = True
+                    break
+            if not evicted:
+                _LOGGER.warning(
+                    "WLED client cache full (%d) but all cached clients have "
+                    "active state caches; skipping eviction for %s",
+                    MAX_CACHED_WLED_CLIENTS,
+                    host,
+                )
 
         try:
             _LOGGER.info("Creating new WLED client for %s", host)

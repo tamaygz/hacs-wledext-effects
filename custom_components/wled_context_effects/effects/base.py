@@ -751,9 +751,12 @@ class WLEDEffectBase:
     async def check_manual_override(self) -> bool:
         """Check if the WLED device was manually controlled since our last command.
 
-        Queries the device's current state via the JSON API and compares it with
-        the last values we commanded.  Returns True only when freeze_on_manual is
-        enabled AND the device state diverges from what we last set.
+        Reads the current device state — preferring the WebSocket push cache when
+        available (sub-millisecond, no HTTP call) and falling back to the throttled
+        JSON API when the cache is absent or not yet seeded.  Compares the state
+        with the last values we commanded.  Returns True only when
+        ``freeze_on_manual`` is enabled AND the device state diverges from what we
+        last set.
 
         Returns:
             True if a manual override is detected, False otherwise

@@ -59,6 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     wled_host: str | None = None
     state_cache_acquired = False
+    setup_complete = False
     try:
         # Get WLED client
         wled_host = entry.data[CONF_WLED_HOST]
@@ -115,6 +116,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Register update listener for options changes
         entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
+        setup_complete = True
         _LOGGER.info("Successfully set up WLED Effects entry: %s", entry.title)
         return True
 
@@ -140,9 +142,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady(f"Effect error: {err}") from err
 
     finally:
-        # Release the state cache refcount if setup did not complete successfully
-        # (i.e., the entry data was not stored, so unload won't release it).
-        if state_cache_acquired and wled_host and entry.entry_id not in hass.data.get(DOMAIN, {}):
+        # If setup did not fully complete, release the state cache refcount and
+        # remove any partially stored entry data so unload doesn't double-release.
+        if state_cache_acquired and wled_host and not setup_complete:
+            hass.data[DOMAIN].pop(entry.entry_id, None)
             try:
                 await connection_manager.release_state_cache(wled_host)
             except Exception as err:  # noqa: BLE001
