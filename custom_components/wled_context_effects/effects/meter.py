@@ -5,7 +5,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from ..coordinator import StateSourceCoordinator
 from ..effects.base import WLEDEffectBase
 from ..effects.registry import register_effect
 
@@ -75,39 +74,16 @@ class MeterEffect(WLEDEffectBase):
         )
         
         # State-reactive configuration (optional)
-        self.state_entity: str | None = config.get("state_entity")
-        self.state_attribute: str | None = config.get("state_attribute")
         self.state_min: float = config.get("state_min", 0.0)
         self.state_max: float = config.get("state_max", 100.0)
         
         # Animation state
         self.current_level: float = self.default_level
         self.peak_level: float = 0.0
-        self.state_coordinator: StateSourceCoordinator | None = None
 
     async def setup(self) -> bool:
-        """Setup effect with optional state coordinator."""
-        if not await super().setup():
-            return False
-        
-        # Create state coordinator if entity specified
-        if self.state_entity:
-            self.state_coordinator = StateSourceCoordinator(
-                self.hass,
-                self.state_entity,
-                self.state_attribute,
-            )
-            await self.state_coordinator.async_setup()
-            await self.state_coordinator.async_config_entry_first_refresh()
-        
-        return True
-
-    async def stop(self) -> None:
-        """Stop effect and cleanup state coordinator."""
-        await super().stop()
-        
-        if self.state_coordinator:
-            await self.state_coordinator.async_shutdown()
+        """Setup effect."""
+        return await super().setup()
 
     def _get_state_value(self) -> float:
         """Get state value as percentage (0.0 to 100.0)."""
@@ -126,21 +102,6 @@ class MeterEffect(WLEDEffectBase):
         percentage = ((raw_value - self.state_min) / value_range) * 100.0
         return max(0.0, min(100.0, percentage))
 
-    def _parse_color(self, color_str: str) -> tuple[int, int, int]:
-        """Parse color from string format.
-
-        Args:
-            color_str: Color in format "R,G,B"
-
-        Returns:
-            RGB tuple
-        """
-        try:
-            parts = color_str.split(",")
-            return (int(parts[0]), int(parts[1]), int(parts[2]))
-        except (ValueError, IndexError):
-            return (255, 255, 255)
-
     def _get_color_for_level(self, level: float) -> tuple[int, int, int]:
         """Get color based on level and thresholds.
 
@@ -156,7 +117,7 @@ class MeterEffect(WLEDEffectBase):
         elif level < self.threshold_high:
             # Medium range - interpolate between green and yellow
             t = (level - self.threshold_medium) / (self.threshold_high - self.threshold_medium)
-            return self.interpolate_color(self.color_medium, self.color_medium, t)
+            return self.interpolate_color(self.color_low, self.color_medium, t)
         else:
             # High range - red
             return self.color_high

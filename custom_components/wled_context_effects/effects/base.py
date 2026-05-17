@@ -20,8 +20,9 @@ from ..const import (
     DEFAULT_ZONE_COUNT,
     TRANSITION_MODE_SMOOTH,
 )
+from ..coordinator import StateSourceCoordinator
 from ..data_mapper import DataMapper, MultiInputBlender, ValueSmoother
-from ..errors import EffectExecutionError
+from ..errors import ConnectionError as WLEDConnectionError, EffectExecutionError
 from ..trigger_manager import TriggerConfig, TriggerManager
 from ..wled_json_api import WLEDJsonApiClient
 
@@ -119,8 +120,7 @@ class WLEDEffectBase:
         # Reactive inputs - list of entity IDs to monitor
         self.reactive_inputs: list[str] = config.get("reactive_inputs", [])
         
-        # Data mapping and smoothing (initialize eagerly for consistency)
-        self.data_mapper = DataMapper()
+        # Data mapping and smoothing
         self.value_smoother: ValueSmoother | None = None
         if self.transition_mode == TRANSITION_MODE_SMOOTH:
             self.value_smoother = ValueSmoother(alpha=0.3)
@@ -130,6 +130,11 @@ class WLEDEffectBase:
         if config.get("trigger_config"):
             self.trigger_manager = TriggerManager(hass)
         
+        # State-reactive support (common to all effects)
+        self.state_entity: str | None = config.get("state_entity")
+        self.state_attribute: str | None = config.get("state_attribute")
+        self.state_coordinator: StateSourceCoordinator | None = None
+
         # Multi-input blending
         self.input_blender = MultiInputBlender()
 
@@ -157,6 +162,16 @@ class WLEDEffectBase:
             # Setup trigger manager if configured
             if self.trigger_manager:
                 await self.trigger_manager.setup()
+
+            # Setup state coordinator if an entity is configured
+            if self.state_entity:
+                self.state_coordinator = StateSourceCoordinator(
+                    self.hass,
+                    self.state_entity,
+                    self.state_attribute,
+                )
+                await self.state_coordinator.async_setup()
+                await self.state_coordinator.async_config_entry_first_refresh()
 
             _LOGGER.info(
                 "Effect %s setup complete. LED range: %d-%d, Segment: %d",
@@ -203,6 +218,11 @@ class WLEDEffectBase:
         if self.trigger_manager:
             await self.trigger_manager.shutdown()
 
+        # Shutdown state coordinator
+        if self.state_coordinator:
+            await self.state_coordinator.async_shutdown()
+            self.state_coordinator = None
+
         self._start_time = None
 
     async def run_once(self) -> None:
@@ -219,10 +239,13 @@ class WLEDEffectBase:
         """Main effect loop (continuous mode)."""
         _LOGGER.debug("Starting effect loop for %s", self.__class__.__name__)
 
+        _consecutive_failures = 0
+        _MAX_CONSECUTIVE_FAILURES = 10
+
         while self._running:
             try:
                 await self.run_effect()
-                self._success_count += 1
+                _consecutive_failures = 0
             except asyncio.CancelledError:
                 _LOGGER.debug("Effect loop cancelled")
                 break
@@ -230,9 +253,20 @@ class WLEDEffectBase:
                 _LOGGER.error("Error in effect loop: %s", err)
                 self._last_error = str(err)
                 self._failure_count += 1
+                _consecutive_failures += 1
 
-                # Continue running despite errors, but add a delay
-                await asyncio.sleep(1)
+                if _consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+                    _LOGGER.error(
+                        "Effect %s reached %d consecutive failures, stopping.",
+                        self.__class__.__name__,
+                        _MAX_CONSECUTIVE_FAILURES,
+                    )
+                    self._running = False
+                    break
+
+                # Exponential backoff: 1s, 2s, 4s, … capped at 30s
+                backoff = min(2 ** (_consecutive_failures - 1), 30)
+                await asyncio.sleep(backoff)
 
     @abstractmethod
     async def run_effect(self) -> None:
@@ -566,13 +600,12 @@ class WLEDEffectBase:
         Returns:
             Mapped output value
         """
-        # Update mapper ranges
-        self.data_mapper.input_min = input_min
-        self.data_mapper.input_max = input_max
-        self.data_mapper.output_min = output_min
-        self.data_mapper.output_max = output_max
-
-        mapped = self.data_mapper.map(value)
+        mapped = DataMapper(
+            input_min=input_min,
+            input_max=input_max,
+            output_min=output_min,
+            output_max=output_max,
+        ).map(value)
 
         # Apply smoothing if requested and enabled
         if smooth and self.value_smoother:
@@ -611,6 +644,21 @@ class WLEDEffectBase:
         g = int(color1[1] + (color2[1] - color1[1]) * position)
         b = int(color1[2] + (color2[2] - color1[2]) * position)
         return (r, g, b)
+
+    def _parse_color(self, color_str: str) -> tuple[int, int, int]:
+        """Parse color from "R,G,B" string, returning white on error.
+
+        Args:
+            color_str: Color string in format "R,G,B"
+
+        Returns:
+            RGB tuple
+        """
+        try:
+            parts = color_str.split(",")
+            return (int(parts[0]), int(parts[1]), int(parts[2]))
+        except (ValueError, IndexError):
+            return (255, 255, 255)
 
     async def check_manual_override(self) -> bool:
         """Check if manual override is active.
