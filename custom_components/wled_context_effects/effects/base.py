@@ -203,7 +203,7 @@ class WLEDEffectBase:
     async def start(self) -> None:
         """Start effect in continuous mode."""
         if self._running:
-            _LOGGER.warning("Effect %s is already running", self.__class__.__name__)
+            _LOGGER.debug("Effect %s is already running", self.__class__.__name__)
             return
 
         _LOGGER.info("Starting effect %s", self.__class__.__name__)
