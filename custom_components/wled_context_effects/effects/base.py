@@ -242,6 +242,11 @@ class WLEDEffectBase:
 
     async def run_once(self) -> None:
         """Run effect once."""
+        if self.start_led is None or self.stop_led is None:
+            raise EffectExecutionError(
+                f"Effect {self.__class__.__name__} LED range not initialized; "
+                "call setup() before run_once()"
+            )
         _LOGGER.debug("Running effect %s once", self.__class__.__name__)
         try:
             await self.run_effect()
@@ -253,6 +258,14 @@ class WLEDEffectBase:
     async def _run_loop(self) -> None:
         """Main effect loop (continuous mode)."""
         _LOGGER.debug("Starting effect loop for %s", self.__class__.__name__)
+
+        if self.start_led is None or self.stop_led is None:
+            _LOGGER.error(
+                "Effect %s LED range not initialized; stopping loop",
+                self.__class__.__name__,
+            )
+            self._running = False
+            return
 
         _consecutive_failures = 0
         _MAX_CONSECUTIVE_FAILURES = 10
@@ -549,12 +562,8 @@ class WLEDEffectBase:
                 self.start_led = 0
                 self.stop_led = 59  # Default fallback
 
-        except (AttributeError, KeyError, TypeError) as err:
-            _LOGGER.debug("Device info access error during LED detection: %s, using defaults", err)
-            self.start_led = 0
-            self.stop_led = 59
-        except (WLEDConnectionError, OSError, asyncio.TimeoutError) as err:
-            _LOGGER.debug("Connection error during LED detection: %s, using defaults", err)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Error during LED detection: %s, using defaults", err)
             self.start_led = 0
             self.stop_led = 59
 
