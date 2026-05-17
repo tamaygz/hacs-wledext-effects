@@ -192,7 +192,7 @@ class StateSourceCoordinator(DataUpdateCoordinator[Any]):
         hass: HomeAssistant,
         entity_id: str,
         attribute: str | None = None,
-        update_interval: timedelta = DEFAULT_STATE_SOURCE_UPDATE_INTERVAL,
+        update_interval: timedelta | None = None,
     ) -> None:
         """Initialize the state source coordinator.
 
@@ -200,7 +200,9 @@ class StateSourceCoordinator(DataUpdateCoordinator[Any]):
             hass: Home Assistant instance
             entity_id: Entity ID to monitor
             attribute: Optional attribute name to monitor
-            update_interval: How often to update
+            update_interval: How often to poll. Defaults to ``None`` because
+                ``async_track_state_change_event`` already drives updates;
+                interval polling is redundant.
         """
         super().__init__(
             hass,

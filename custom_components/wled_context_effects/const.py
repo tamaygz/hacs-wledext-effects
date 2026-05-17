@@ -30,6 +30,12 @@ DEFAULT_AUTO_START: Final = False
 DEFAULT_ENABLED: Final = True
 DEFAULT_UPDATE_INTERVAL: Final = timedelta(seconds=30)
 DEFAULT_STATE_SOURCE_UPDATE_INTERVAL: Final = timedelta(seconds=0.5)
+# Throttle for per-frame check_manual_override HTTP polling. The cached
+# result is reused until this interval elapses.
+OVERRIDE_CHECK_THROTTLE_INTERVAL: Final = 1.0  # seconds
+# Skip wled.segment() calls whose kwargs are identical to the previous call
+# and were issued within this window.
+COMMAND_DEBOUNCE_INTERVAL: Final = 0.1  # seconds
 DEFAULT_RETRY_DELAY: Final = 5  # seconds
 DEFAULT_MAX_RETRIES: Final = 3
 DEFAULT_COMMAND_TIMEOUT: Final = 10  # seconds

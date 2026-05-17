@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from abc import abstractmethod
 from dataclasses import fields
 from datetime import datetime
@@ -12,6 +13,7 @@ from wled import WLED
 
 from ..const import (
     BLEND_MODE_AVERAGE,
+    COMMAND_DEBOUNCE_INTERVAL,
     DEFAULT_BLEND_MODE,
     DEFAULT_BRIGHTNESS,
     DEFAULT_FREEZE_ON_MANUAL,
@@ -19,6 +21,7 @@ from ..const import (
     DEFAULT_SEGMENT_ID,
     DEFAULT_TRANSITION_MODE,
     DEFAULT_ZONE_COUNT,
+    OVERRIDE_CHECK_THROTTLE_INTERVAL,
     TRANSITION_MODE_SMOOTH,
 )
 from ..coordinator import StateSourceCoordinator
@@ -109,6 +112,14 @@ class WLEDEffectBase:
         # whether a human changed the device state behind our back.
         self._last_commanded_on: bool | None = None
         self._last_commanded_brightness: int | None = None
+
+        # Throttle state for check_manual_override (cache result for N seconds)
+        self._override_last_check_monotonic: float = 0.0
+        self._override_last_result: bool = False
+
+        # Debounce state for send_wled_command (skip identical back-to-back calls)
+        self._last_command_signature: tuple | None = None
+        self._last_command_monotonic: float = 0.0
 
         # Extract common config
         self.segment_id: int = config.get("segment_id", DEFAULT_SEGMENT_ID)
@@ -331,13 +342,23 @@ class WLEDEffectBase:
         Raises:
             EffectExecutionError: If command fails
         """
+        # Add segment_id to kwargs if not present
+        if "segment_id" not in kwargs:
+            kwargs["segment_id"] = self.segment_id
+
+        # Debounce: skip the network call when the exact same payload was just
+        # sent. The device is already in the desired state; this is a no-op.
+        signature = tuple(sorted((k, repr(v)) for k, v in kwargs.items()))
+        now = time.monotonic()
+        if (
+            self._last_command_signature == signature
+            and (now - self._last_command_monotonic) < COMMAND_DEBOUNCE_INTERVAL
+        ):
+            return True
+
         self._command_count += 1
 
         try:
-            # Add segment_id to kwargs if not present
-            if "segment_id" not in kwargs:
-                kwargs["segment_id"] = self.segment_id
-
             _LOGGER.debug(
                 "Sending WLED command to segment %d: %s",
                 self.segment_id,
@@ -346,6 +367,9 @@ class WLEDEffectBase:
 
             await self.wled.segment(**kwargs)
             self._success_count += 1
+
+            self._last_command_signature = signature
+            self._last_command_monotonic = now
 
             # Track what we last commanded so check_manual_override can detect drift
             if "on" in kwargs:
@@ -708,11 +732,20 @@ class WLEDEffectBase:
             # Cannot detect without a JSON client or before we have sent any command
             return False
 
+        # Throttle: the effect loop calls this every frame (~30 fps). Reuse the
+        # last result until the throttle interval has elapsed to avoid flooding
+        # the device with HTTP GETs.
+        now = time.monotonic()
+        if (now - self._override_last_check_monotonic) < OVERRIDE_CHECK_THROTTLE_INTERVAL:
+            return self._override_last_result
+
+        self._override_last_check_monotonic = now
+
         try:
             state = await self.json_client.get_state()
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Could not read device state for override check: %s", err)
-            return False
+            return self._override_last_result
 
         current_on: bool = bool(state.get("on", True))
         if current_on != self._last_commanded_on:
@@ -721,6 +754,7 @@ class WLEDEffectBase:
                 current_on,
                 self._last_commanded_on,
             )
+            self._override_last_result = True
             return True
 
         if self._last_commanded_brightness is not None:
@@ -732,8 +766,10 @@ class WLEDEffectBase:
                     current_bri,
                     self._last_commanded_brightness,
                 )
+                self._override_last_result = True
                 return True
 
+        self._override_last_result = False
         return False
 
     async def on_trigger(self, trigger_data: dict[str, Any]) -> None:
