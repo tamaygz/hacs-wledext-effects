@@ -130,8 +130,6 @@ class AlertEffect(WLEDEffectBase):
         self.acknowledge_entity: str | None = config.get("acknowledge_entity")
         
         # Auto-severity from state
-        self.state_entity: str | None = config.get("state_entity")
-        self.state_attribute: str | None = config.get("state_attribute")
         self.severity_thresholds: dict[str, float] = config.get("severity_thresholds", {
             "debug": 10.0,
             "info": 30.0,
@@ -149,27 +147,16 @@ class AlertEffect(WLEDEffectBase):
         self.acknowledged: bool = False
         
         # Coordinators
-        self.state_coordinator: StateSourceCoordinator | None = None
         self.ack_coordinator: StateSourceCoordinator | None = None
 
     async def setup(self) -> bool:
-        """Setup effect with optional state coordinators."""
+        """Setup effect with optional acknowledgment coordinator."""
         if not await super().setup():
             return False
         
         # Initialize sparkle tracking
         led_count = (self.stop_led - self.start_led) + 1
         self.sparkle_brightness = [0.0] * led_count
-        
-        # Create state coordinator for auto-severity
-        if self.state_entity:
-            self.state_coordinator = StateSourceCoordinator(
-                self.hass,
-                self.state_entity,
-                self.state_attribute,
-            )
-            await self.state_coordinator.async_setup()
-            await self.state_coordinator.async_config_entry_first_refresh()
         
         # Create acknowledgment coordinator
         if self.acknowledge_entity:
@@ -186,25 +173,8 @@ class AlertEffect(WLEDEffectBase):
         """Stop effect and cleanup coordinators."""
         await super().stop()
         
-        if self.state_coordinator:
-            await self.state_coordinator.async_shutdown()
         if self.ack_coordinator:
             await self.ack_coordinator.async_shutdown()
-
-    def _parse_color(self, color_str: str) -> tuple[int, int, int]:
-        """Parse color from string format.
-
-        Args:
-            color_str: Color in format "R,G,B"
-
-        Returns:
-            RGB tuple
-        """
-        try:
-            parts = color_str.split(",")
-            return (int(parts[0]), int(parts[1]), int(parts[2]))
-        except (ValueError, IndexError):
-            return (255, 255, 255)
 
     def _get_severity_from_state(self) -> Severity:
         """Determine severity from state value.

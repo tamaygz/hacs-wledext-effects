@@ -5,7 +5,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from ..coordinator import StateSourceCoordinator
 from ..effects.base import WLEDEffectBase
 from ..effects.registry import register_effect
 
@@ -67,8 +66,6 @@ class ChaseEffect(WLEDEffectBase):
         self.scan_mode: bool = config.get("scan_mode", False)  # True = scanner (fade from center)
         
         # State-reactive configuration (optional)
-        self.state_entity: str | None = config.get("state_entity")
-        self.state_attribute: str | None = config.get("state_attribute")
         self.state_controls: str = config.get("state_controls", "speed")  # speed, direction, length
         self.state_min: float = config.get("state_min", 0.0)
         self.state_max: float = config.get("state_max", 100.0)
@@ -76,31 +73,10 @@ class ChaseEffect(WLEDEffectBase):
         # Animation state
         self.position: int = 0
         self.direction: int = 1  # 1 = forward, -1 = backward
-        self.state_coordinator: StateSourceCoordinator | None = None
 
     async def setup(self) -> bool:
-        """Setup effect with optional state coordinator."""
-        if not await super().setup():
-            return False
-        
-        # Create state coordinator if entity specified
-        if self.state_entity:
-            self.state_coordinator = StateSourceCoordinator(
-                self.hass,
-                self.state_entity,
-                self.state_attribute,
-            )
-            await self.state_coordinator.async_setup()
-            await self.state_coordinator.async_config_entry_first_refresh()
-        
-        return True
-
-    async def stop(self) -> None:
-        """Stop effect and cleanup state coordinator."""
-        await super().stop()
-        
-        if self.state_coordinator:
-            await self.state_coordinator.async_shutdown()
+        """Setup effect."""
+        return await super().setup()
 
     def _get_state_value(self) -> float:
         """Get normalized state value (0.0 to 1.0)."""
@@ -118,21 +94,6 @@ class ChaseEffect(WLEDEffectBase):
         
         normalized = (raw_value - self.state_min) / value_range
         return max(0.0, min(1.0, normalized))
-
-    def _parse_color(self, color_str: str) -> tuple[int, int, int]:
-        """Parse color from string format.
-
-        Args:
-            color_str: Color in format "R,G,B"
-
-        Returns:
-            RGB tuple
-        """
-        try:
-            parts = color_str.split(",")
-            return (int(parts[0]), int(parts[1]), int(parts[2]))
-        except (ValueError, IndexError):
-            return (255, 100, 0)
 
     async def run_effect(self) -> None:
         """Render chase animation."""

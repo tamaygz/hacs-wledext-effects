@@ -5,7 +5,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from ..coordinator import StateSourceCoordinator
 from ..effects.base import WLEDEffectBase
 from ..effects.registry import register_effect
 
@@ -45,8 +44,6 @@ class StateSyncEffect(WLEDEffectBase):
         super().__init__(hass, wled_client, config, json_client)
         
         # Effect-specific configuration
-        self.state_entity: str = config.get("state_entity", "")
-        self.state_attribute: str | None = config.get("state_attribute")
         self.min_value: float = config.get("min_value", 0.0)
         self.max_value: float = config.get("max_value", 100.0)
         self.animation_mode: str = config.get("animation_mode", "fill")
@@ -57,52 +54,10 @@ class StateSyncEffect(WLEDEffectBase):
             config.get("color_high", "0,255,0")
         )
         self.update_interval: float = config.get("update_interval", 0.05)
-        
-        # State source coordinator
-        self.state_coordinator: StateSourceCoordinator | None = None
 
     async def setup(self) -> bool:
-        """Setup effect with state source coordinator.
-
-        Returns:
-            True if setup successful
-        """
-        if not await super().setup():
-            return False
-        
-        # Create state source coordinator if entity is specified
-        if self.state_entity:
-            self.state_coordinator = StateSourceCoordinator(
-                self.hass,
-                self.state_entity,
-                self.state_attribute,
-            )
-            await self.state_coordinator.async_setup()
-            await self.state_coordinator.async_config_entry_first_refresh()
-        
-        return True
-
-    async def stop(self) -> None:
-        """Stop the effect and clean up state coordinator."""
-        await super().stop()
-        
-        if self.state_coordinator:
-            await self.state_coordinator.async_shutdown()
-
-    def _parse_color(self, color_str: str) -> tuple[int, int, int]:
-        """Parse color from string format.
-
-        Args:
-            color_str: Color in format "R,G,B"
-
-        Returns:
-            RGB tuple
-        """
-        try:
-            parts = color_str.split(",")
-            return (int(parts[0]), int(parts[1]), int(parts[2]))
-        except (ValueError, IndexError):
-            return (255, 255, 255)
+        """Setup effect."""
+        return await super().setup()
 
     def _get_current_value(self) -> float:
         """Get current state value as percentage.
@@ -123,28 +78,6 @@ class StateSyncEffect(WLEDEffectBase):
             return 0.5
         
         return (raw_value - self.min_value) / value_range
-
-    def _interpolate_color(
-        self,
-        color1: tuple[int, int, int],
-        color2: tuple[int, int, int],
-        position: float,
-    ) -> tuple[int, int, int]:
-        """Interpolate between two colors.
-
-        Args:
-            color1: First color (RGB)
-            color2: Second color (RGB)
-            position: Position between colors (0.0 to 1.0)
-
-        Returns:
-            Interpolated RGB color
-        """
-        return (
-            int(color1[0] + (color2[0] - color1[0]) * position),
-            int(color1[1] + (color2[1] - color1[1]) * position),
-            int(color1[2] + (color2[2] - color1[2]) * position),
-        )
 
     async def run_effect(self) -> None:
         """Render state visualization."""

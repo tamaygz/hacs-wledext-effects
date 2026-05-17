@@ -5,7 +5,6 @@ import asyncio
 import colorsys
 from typing import TYPE_CHECKING, Any
 
-from ..coordinator import StateSourceCoordinator
 from ..effects.base import WLEDEffectBase
 from ..effects.registry import register_effect
 
@@ -48,39 +47,16 @@ class RainbowWaveEffect(WLEDEffectBase):
         self.update_interval: float = config.get("update_interval", 0.03)
         
         # State-reactive configuration (optional)
-        self.state_entity: str | None = config.get("state_entity")
-        self.state_attribute: str | None = config.get("state_attribute")
         self.state_controls: str = config.get("state_controls", "speed")  # speed, wavelength, both
         self.state_min: float = config.get("state_min", 0.0)
         self.state_max: float = config.get("state_max", 100.0)
         
         # Animation state
         self.color_offset: float = 0.0
-        self.state_coordinator: StateSourceCoordinator | None = None
 
     async def setup(self) -> bool:
-        """Setup effect with optional state coordinator."""
-        if not await super().setup():
-            return False
-        
-        # Create state coordinator if entity specified
-        if self.state_entity:
-            self.state_coordinator = StateSourceCoordinator(
-                self.hass,
-                self.state_entity,
-                self.state_attribute,
-            )
-            await self.state_coordinator.async_setup()
-            await self.state_coordinator.async_config_entry_first_refresh()
-        
-        return True
-
-    async def stop(self) -> None:
-        """Stop effect and cleanup state coordinator."""
-        await super().stop()
-        
-        if self.state_coordinator:
-            await self.state_coordinator.async_shutdown()
+        """Setup effect."""
+        return await super().setup()
 
     def _get_state_value(self) -> float:
         """Get normalized state value (0.0 to 1.0)."""

@@ -5,7 +5,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from ..coordinator import StateSourceCoordinator
 from ..effects.base import WLEDEffectBase
 from ..effects.registry import register_effect
 
@@ -64,8 +63,6 @@ class SegmentFadeEffect(WLEDEffectBase):
         self.pattern_mode: str = config.get("pattern_mode", "gradient")  # gradient, traveling, wave, alternating
         
         # State-reactive configuration (optional)
-        self.state_entity: str | None = config.get("state_entity")
-        self.state_attribute: str | None = config.get("state_attribute")
         self.state_controls: str = config.get("state_controls", "speed")  # speed, position
         self.state_min: float = config.get("state_min", 0.0)
         self.state_max: float = config.get("state_max", 100.0)
@@ -73,31 +70,10 @@ class SegmentFadeEffect(WLEDEffectBase):
         # Animation state
         self.current_step: int = 0
         self.direction: int = 1  # 1 for forward, -1 for reverse
-        self.state_coordinator: StateSourceCoordinator | None = None
 
     async def setup(self) -> bool:
-        """Setup effect with optional state coordinator."""
-        if not await super().setup():
-            return False
-        
-        # Create state coordinator if entity specified
-        if self.state_entity:
-            self.state_coordinator = StateSourceCoordinator(
-                self.hass,
-                self.state_entity,
-                self.state_attribute,
-            )
-            await self.state_coordinator.async_setup()
-            await self.state_coordinator.async_config_entry_first_refresh()
-        
-        return True
-
-    async def stop(self) -> None:
-        """Stop effect and cleanup state coordinator."""
-        await super().stop()
-        
-        if self.state_coordinator:
-            await self.state_coordinator.async_shutdown()
+        """Setup effect."""
+        return await super().setup()
 
     def _get_state_value(self) -> float:
         """Get normalized state value (0.0 to 1.0)."""
@@ -115,43 +91,6 @@ class SegmentFadeEffect(WLEDEffectBase):
         
         normalized = (raw_value - self.state_min) / value_range
         return max(0.0, min(1.0, normalized))
-
-    def _parse_color(self, color_str: str) -> tuple[int, int, int]:
-        """Parse color from string format.
-
-        Args:
-            color_str: Color in format "R,G,B"
-
-        Returns:
-            RGB tuple
-        """
-        try:
-            parts = color_str.split(",")
-            return (int(parts[0]), int(parts[1]), int(parts[2]))
-        except (ValueError, IndexError):
-            return (255, 255, 255)  # Default to white
-
-    def _interpolate_color(
-        self,
-        color1: tuple[int, int, int],
-        color2: tuple[int, int, int],
-        position: float,
-    ) -> tuple[int, int, int]:
-        """Interpolate between two colors.
-
-        Args:
-            color1: First color (RGB)
-            color2: Second color (RGB)
-            position: Position between colors (0.0 to 1.0)
-
-        Returns:
-            Interpolated RGB color
-        """
-        return (
-            int(color1[0] + (color2[0] - color1[0]) * position),
-            int(color1[1] + (color2[1] - color1[1]) * position),
-            int(color1[2] + (color2[2] - color1[2]) * position),
-        )
 
     async def run_effect(self) -> None:
         """Render gradient fade animation with per-LED control."""
