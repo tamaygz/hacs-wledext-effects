@@ -8,6 +8,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from wled import WLED, Device, WLEDConnectionClosedError
 
+try:
+    from wled.exceptions import WLEDConnectionError as WLEDLibraryConnectionError
+except ImportError:  # pragma: no cover - fallback for tests with lightweight stubs
+    WLEDLibraryConnectionError = None
+
 from .const import (
     WS_RECONNECT_BACKOFF_MAX,
     WS_RECONNECT_BACKOFF_MIN,
@@ -21,6 +26,10 @@ if TYPE_CHECKING:
     import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
+
+_WLED_CONNECTION_EXCEPTIONS: tuple[type[Exception], ...] = (
+    (WLEDLibraryConnectionError,) if WLEDLibraryConnectionError else ()
+)
 
 # Separate capacity limits per pool to prevent cross-pool eviction
 MAX_CACHED_WLED_CLIENTS = 10
@@ -337,7 +346,7 @@ class WLEDConnectionManager:
 
         except WLEDConnectionError:
             raise
-        except (OSError, asyncio.TimeoutError, ValueError) as err:
+        except _WLED_CONNECTION_EXCEPTIONS + (OSError, asyncio.TimeoutError, ValueError) as err:
             _LOGGER.error("Failed to connect to WLED device at %s: %s", host, err)
             raise WLEDConnectionError(
                 f"Failed to connect to WLED device at {host}: {err}"
@@ -356,7 +365,12 @@ class WLEDConnectionManager:
         try:
             await client.update()
             return True
-        except (WLEDConnectionError, OSError, asyncio.TimeoutError, ValueError) as err:
+        except _WLED_CONNECTION_EXCEPTIONS + (
+            WLEDConnectionError,
+            OSError,
+            asyncio.TimeoutError,
+            ValueError,
+        ) as err:
             _LOGGER.debug("Connection test failed for %s: %s", host, err)
             return False
         finally:

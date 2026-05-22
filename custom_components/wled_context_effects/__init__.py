@@ -121,7 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return True
 
     except WLEDConnectionError as err:
-        _LOGGER.error("Failed to connect to WLED device: %s", err)
+        _LOGGER.warning("Failed to connect to WLED device: %s", err)
         raise ConfigEntryNotReady(f"Failed to connect to WLED device: {err}") from err
 
     except EffectNotFoundError as err:
