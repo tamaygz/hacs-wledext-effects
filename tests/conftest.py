@@ -98,4 +98,9 @@ _stub(
 )
 
 # --- wled (python-wled external package) ---
-_stub("wled", WLED=MagicMock)
+_stub(
+    "wled",
+    WLED=MagicMock,
+    Device=MagicMock,
+    WLEDConnectionClosedError=type("WLEDConnectionClosedError", (Exception,), {}),
+)

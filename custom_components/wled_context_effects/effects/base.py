@@ -99,6 +99,10 @@ class WLEDEffectBase:
         self.hass = hass
         self.wled = wled_client
         self.json_client = json_client
+        # Optional push-based state cache; set by __init__.async_setup_entry.
+        # When present, check_manual_override and _auto_detect_range read from
+        # WebSocket-pushed snapshots instead of issuing HTTP GETs.
+        self.state_cache: Any = None
         self.config = config
         self._running = False
         self._task: asyncio.Task | None = None
@@ -588,7 +592,11 @@ class WLEDEffectBase:
         """Auto-detect LED range from device."""
         try:
             _LOGGER.debug("Auto-detecting LED range for WLED device")
-            device = await self.wled.update()
+            device = None
+            if self.state_cache is not None:
+                device = self.state_cache.device
+            if device is None:
+                device = await self.wled.update()
 
             if device and device.info and device.info.leds:
                 led_count = device.info.leds.count
@@ -743,9 +751,12 @@ class WLEDEffectBase:
     async def check_manual_override(self) -> bool:
         """Check if the WLED device was manually controlled since our last command.
 
-        Queries the device's current state via the JSON API and compares it with
-        the last values we commanded.  Returns True only when freeze_on_manual is
-        enabled AND the device state diverges from what we last set.
+        Reads the current device state — preferring the WebSocket push cache when
+        available (sub-millisecond, no HTTP call) and falling back to the throttled
+        JSON API when the cache is absent or not yet seeded.  Compares the state
+        with the last values we commanded.  Returns True only when
+        ``freeze_on_manual`` is enabled AND the device state diverges from what we
+        last set.
 
         Returns:
             True if a manual override is detected, False otherwise
@@ -753,24 +764,37 @@ class WLEDEffectBase:
         if not self.freeze_on_manual:
             return False
 
-        if self.json_client is None or self._last_commanded_on is None:
-            # Cannot detect without a JSON client or before we have sent any command
+        if self._last_commanded_on is None:
+            # Before we have sent any command, nothing to compare against.
             return False
 
-        # Throttle: the effect loop calls this every frame (~30 fps). Reuse the
-        # last result until the throttle interval has elapsed to avoid flooding
-        # the device with HTTP GETs.
+        # Throttle: the effect loop calls this every frame (~30 fps). Reuse
+        # the last result until the throttle interval has elapsed.  This applies
+        # to both the cache path and the HTTP fallback to avoid repeated logging
+        # at frame-rate when an override is active.
         now = time.monotonic()
         if (now - self._override_last_check_monotonic) < OVERRIDE_CHECK_THROTTLE_INTERVAL:
             return self._override_last_result
-
         self._override_last_check_monotonic = now
 
-        try:
-            state = await self.json_client.get_state()
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.debug("Could not read device state for override check: %s", err)
-            return self._override_last_result
+        # Prefer WebSocket-pushed cache when available (no HTTP, sub-ms).
+        # Fall through to the HTTP path when the cache is present but not yet
+        # seeded (empty dict means no snapshot has arrived yet).
+        cache_state: dict[str, Any] | None = None
+        if self.state_cache is not None:
+            cache_state = self.state_cache.get_state_dict()
+
+        if cache_state:
+            state = cache_state
+        else:
+            if self.json_client is None:
+                return False
+
+            try:
+                state = await self.json_client.get_state()
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Could not read device state for override check: %s", err)
+                return self._override_last_result
 
         current_on: bool = bool(state.get("on", True))
         if current_on != self._last_commanded_on:

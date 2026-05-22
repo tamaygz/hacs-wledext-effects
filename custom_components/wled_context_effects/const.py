@@ -36,6 +36,12 @@ OVERRIDE_CHECK_THROTTLE_INTERVAL: Final = 1.0  # seconds
 # Skip wled.segment() calls whose kwargs are identical to the previous call
 # and were issued within this window.
 COMMAND_DEBOUNCE_INTERVAL: Final = 0.1  # seconds
+# WebSocket safety poll: re-fetch full state every N seconds to compensate for
+# WLED issue #2026 where non-main-segment state changes may not always push.
+WS_SAFETY_POLL_INTERVAL: Final = 5.0  # seconds
+# WebSocket reconnect backoff bounds (seconds).
+WS_RECONNECT_BACKOFF_MIN: Final = 1.0
+WS_RECONNECT_BACKOFF_MAX: Final = 30.0
 DEFAULT_RETRY_DELAY: Final = 5  # seconds
 DEFAULT_MAX_RETRIES: Final = 3
 DEFAULT_COMMAND_TIMEOUT: Final = 10  # seconds
