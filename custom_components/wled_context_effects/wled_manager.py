@@ -232,13 +232,18 @@ class WLEDConnectionManager:
             return cache
 
     async def release_state_cache(self, host: str) -> None:
-        """Decrement refcount; stop the WS when it reaches zero."""
-        cache = self._state_caches.get(host)
-        if cache is None:
-            return
-        if cache.decrement() == 0:
-            self._state_caches.pop(host, None)
-            await cache.stop()
+        """Decrement refcount; stop the WS when it reaches zero.
+
+        Uses the same lock as ``acquire_state_cache`` so a concurrent acquire
+        and release for the same host cannot race on the refcount.
+        """
+        async with self._state_cache_lock:
+            cache = self._state_caches.get(host)
+            if cache is None:
+                return
+            if cache.decrement() == 0:
+                self._state_caches.pop(host, None)
+                await cache.stop()
 
     def get_state_cache(self, host: str) -> WLEDDeviceStateCache | None:
         """Return the active state cache for ``host`` without changing refcount."""
@@ -279,21 +284,40 @@ class WLEDConnectionManager:
                     evicted = True
                     break
             if not evicted:
-                # All cached clients have active state caches. To enforce the
-                # hard cap and prevent unbounded growth, evict the LRU
-                # cache+client pair (stop its WS, then close its client).
-                oldest_host = next(iter(self._clients))
-                _LOGGER.warning(
-                    "WLED client cache full (%d) and all clients have active state "
-                    "caches; evicting LRU cache+client pair for %s to make room for %s",
-                    MAX_CACHED_WLED_CLIENTS,
-                    oldest_host,
-                    host,
-                )
-                lru_cache = self._state_caches.pop(oldest_host, None)
-                if lru_cache is not None:
-                    await lru_cache.stop()
-                await self.close_client(oldest_host)
+                # All cached clients have active state caches. Look for an
+                # inactive one (ref_count == 0) to evict safely without
+                # breaking running effects.
+                lru_inactive_host = None
+                for candidate in list(self._clients):
+                    candidate_cache = self._state_caches.get(candidate)
+                    if candidate_cache is None or candidate_cache.ref_count == 0:
+                        lru_inactive_host = candidate
+                        break
+
+                if lru_inactive_host is not None:
+                    _LOGGER.warning(
+                        "WLED client cache full (%d); evicting inactive "
+                        "cache+client pair for %s to make room for %s",
+                        MAX_CACHED_WLED_CLIENTS,
+                        lru_inactive_host,
+                        host,
+                    )
+                    lru_cache = self._state_caches.pop(lru_inactive_host, None)
+                    if lru_cache is not None:
+                        await lru_cache.stop()
+                    await self.close_client(lru_inactive_host)
+                else:
+                    # Every cached client has an active state cache (ref_count > 0).
+                    # Refuse to evict to avoid breaking running effects; log a
+                    # clear error and allow the pool to grow past the soft cap.
+                    _LOGGER.error(
+                        "WLED client cache full (%d) and all %d cached clients have "
+                        "active state caches (ref_count > 0); cannot safely evict. "
+                        "Creating new client for %s beyond the soft cap.",
+                        MAX_CACHED_WLED_CLIENTS,
+                        len(self._clients),
+                        host,
+                    )
 
         try:
             _LOGGER.info("Creating new WLED client for %s", host)

@@ -81,8 +81,8 @@ async def test_listener_fanout(wled_client):
     unsub = cache.add_listener(lambda d: received.append(d))
     await cache.start()
     try:
-        # Initial seed fires listeners via _on_device path? No — start() sets
-        # device directly via update(). Manually trigger to test fan-out.
+        # start() seeds device via _on_device(), so the listener already received
+        # the initial snapshot. Trigger another update to verify fan-out.
         new_dev = _make_device(on=False, brightness=42)
         cache._on_device(new_dev)
         assert received[-1] is new_dev
