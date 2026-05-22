@@ -347,7 +347,7 @@ class WLEDConnectionManager:
         except WLEDConnectionError:
             raise
         except _WLED_CONNECTION_EXCEPTIONS + (OSError, asyncio.TimeoutError, ValueError) as err:
-            _LOGGER.error("Failed to connect to WLED device at %s: %s", host, err)
+            _LOGGER.debug("Failed to connect to WLED device at %s: %s", host, err)
             raise WLEDConnectionError(
                 f"Failed to connect to WLED device at {host}: {err}"
             ) from err
