@@ -1,6 +1,7 @@
 """Tests for setup-time connection error handling."""
 from __future__ import annotations
 
+import importlib
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -8,10 +9,11 @@ import pytest
 
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from custom_components.wled_context_effects import __init__ as integration_init
 from custom_components.wled_context_effects.const import CONF_EFFECT_TYPE, CONF_WLED_HOST, DOMAIN
 from custom_components.wled_context_effects.errors import ConnectionError as IntegrationConnectionError
 from custom_components.wled_context_effects.wled_manager import WLEDConnectionManager
+
+integration_init = importlib.import_module("custom_components.wled_context_effects")
 
 
 @pytest.mark.asyncio
