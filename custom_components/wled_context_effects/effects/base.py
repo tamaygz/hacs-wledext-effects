@@ -768,6 +768,15 @@ class WLEDEffectBase:
             # Before we have sent any command, nothing to compare against.
             return False
 
+        # Throttle: the effect loop calls this every frame (~30 fps). Reuse
+        # the last result until the throttle interval has elapsed.  This applies
+        # to both the cache path and the HTTP fallback to avoid repeated logging
+        # at frame-rate when an override is active.
+        now = time.monotonic()
+        if (now - self._override_last_check_monotonic) < OVERRIDE_CHECK_THROTTLE_INTERVAL:
+            return self._override_last_result
+        self._override_last_check_monotonic = now
+
         # Prefer WebSocket-pushed cache when available (no HTTP, sub-ms).
         # Fall through to the HTTP path when the cache is present but not yet
         # seeded (empty dict means no snapshot has arrived yet).
@@ -780,14 +789,6 @@ class WLEDEffectBase:
         else:
             if self.json_client is None:
                 return False
-            # Throttle: the effect loop calls this every frame (~30 fps). Reuse
-            # the last result until the throttle interval has elapsed to avoid
-            # flooding the device with HTTP GETs.
-            now = time.monotonic()
-            if (now - self._override_last_check_monotonic) < OVERRIDE_CHECK_THROTTLE_INTERVAL:
-                return self._override_last_result
-
-            self._override_last_check_monotonic = now
 
             try:
                 state = await self.json_client.get_state()

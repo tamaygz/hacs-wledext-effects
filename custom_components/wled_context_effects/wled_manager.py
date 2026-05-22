@@ -80,9 +80,11 @@ class WLEDDeviceStateCache:
             return
 
         # Seed with one HTTP fetch so consumers have data immediately.
+        # Route through _on_device so any listeners registered before start()
+        # receive the initial snapshot and _ready is set consistently.
         try:
-            self.device = await self._wled.update()
-            self._ready.set()
+            device = await self._wled.update()
+            self._on_device(device)
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Initial state fetch for %s failed: %s", self.host, err)
 
@@ -277,12 +279,21 @@ class WLEDConnectionManager:
                     evicted = True
                     break
             if not evicted:
+                # All cached clients have active state caches. To enforce the
+                # hard cap and prevent unbounded growth, evict the LRU
+                # cache+client pair (stop its WS, then close its client).
+                oldest_host = next(iter(self._clients))
                 _LOGGER.warning(
-                    "WLED client cache full (%d) but all cached clients have "
-                    "active state caches; skipping eviction for %s",
+                    "WLED client cache full (%d) and all clients have active state "
+                    "caches; evicting LRU cache+client pair for %s to make room for %s",
                     MAX_CACHED_WLED_CLIENTS,
+                    oldest_host,
                     host,
                 )
+                lru_cache = self._state_caches.pop(oldest_host, None)
+                if lru_cache is not None:
+                    await lru_cache.stop()
+                await self.close_client(oldest_host)
 
         try:
             _LOGGER.info("Creating new WLED client for %s", host)
